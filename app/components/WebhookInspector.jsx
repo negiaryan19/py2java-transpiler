@@ -1,9 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Send,
   RefreshCw,
+  ShieldCheck,
+  ShieldAlert,
+  Loader2,
+  Check,
+  Copy,
+  Lock,
 } from 'lucide-react';
 
 export default function WebhookInspector({
@@ -23,6 +29,45 @@ export default function WebhookInspector({
   copiedId,
 }) {
   const selectedWebhook = webhookDeliveries[selectedWebhookIndex] || null;
+
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleVerify = async (tamper = false) => {
+    if (!selectedWebhook) return;
+    setIsVerifying(true);
+    try {
+      let payloadToTest = selectedWebhook.payload;
+      if (tamper) {
+        payloadToTest = { ...payloadToTest, _unauthorized_injection: 'attack_vector_detected' };
+      }
+      const rawSig = selectedWebhook.headers?.['X-Signature-SHA256'] || '';
+      const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
+
+      const res = await fetch('/api/v1/webhook-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payload: payloadToTest,
+          signature: rawSig,
+          secret: secret,
+        }),
+      });
+
+      const json = await res.json();
+      setVerificationResult({
+        ...json,
+        tampered: tamper,
+      });
+    } catch (err) {
+      setVerificationResult({
+        verified: false,
+        message: 'Verification request failed: ' + err.message,
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   return (
     <section className="space-y-4">
@@ -208,6 +253,87 @@ export default function WebhookInspector({
             placeholder="// Select a delivery above to inspect its JSON payload..."
           />
         </div>
+      </div>
+
+      {/* Live Cryptographic HMAC-SHA256 Integrity Verifier */}
+      <div className="t-surface p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 t-border-b pb-3">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 text-emerald-500" />
+            <h3 className="font-bold text-sm heading-font">Cryptographic Webhook Signature Verifier</h3>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
+              POST /api/v1/webhook-verify
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleVerify(false)}
+              disabled={isVerifying || !selectedWebhook}
+              className="t-btn-primary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              {isVerifying ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <ShieldCheck className="w-3.5 h-3.5" />
+              )}
+              <span>Verify Signature Authenticity</span>
+            </button>
+            <button
+              onClick={() => handleVerify(true)}
+              disabled={isVerifying || !selectedWebhook}
+              className="t-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50 text-rose-500 hover:text-rose-600"
+              title="Inject malicious property into payload to test anti-tamper security"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Simulate Tampered Payload</span>
+            </button>
+          </div>
+        </div>
+
+        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+          Validates that incoming webhook payloads match their cryptographic HMAC-SHA256 signature using constant-time byte comparison (<code className="font-mono">crypto.timingSafeEqual</code>) to prevent timing attacks.
+        </p>
+
+        {verificationResult && (
+          <div
+            className={`p-3 rounded border font-mono text-xs space-y-2 transition ${
+              verificationResult.verified
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold">
+                {verificationResult.verified ? (
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <ShieldAlert className="w-4 h-4 text-rose-500" />
+                )}
+                <span>
+                  {verificationResult.verified
+                    ? 'VERIFIED AUTHENTIC: Signature matches payload untampered.'
+                    : 'INTEGRITY ALERT: Signature verification failed / Payload tampered.'}
+                </span>
+              </div>
+              <span className="text-[10px] px-1.5 py-0.5 rounded border border-current font-semibold">
+                Algorithm: HMAC-SHA256
+              </span>
+            </div>
+
+            <div className="text-[11px] space-y-1 opacity-90">
+              <div>
+                <span className="opacity-60">Message:</span> {verificationResult.message}
+              </div>
+              {verificationResult.computed_signature && (
+                <div className="break-all">
+                  <span className="opacity-60">Computed Digest:</span>{' '}
+                  <span className="font-semibold">{verificationResult.computed_signature}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

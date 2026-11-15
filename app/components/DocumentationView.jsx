@@ -155,6 +155,58 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
       <div className="t-surface p-4 space-y-3">
         <div className="flex items-center justify-between t-border-b pb-2.5">
           <div>
+            <h3 className="font-bold text-sm heading-font">API Gateway REST Endpoint Catalog</h3>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Full-stack authenticated endpoints exported by J-Forge
+            </p>
+          </div>
+          <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
+            4 Production Routes
+          </span>
+        </div>
+        <div className="space-y-2 font-mono text-xs">
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-emerald-500/15 text-emerald-600">POST</span>
+              <span className="font-bold">/api/v1/convert</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">x-api-key</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Core Transpiler Engine + Async HMAC Webhook Dispatcher</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-amber-500/15 text-amber-600">POST</span>
+              <span className="font-bold">/api/v1/explain</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">x-api-key</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Compiler Diagnostics, Big-O Time/Space Complexity & Type Safety</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-purple-500/15 text-purple-600">POST</span>
+              <span className="font-bold">/api/v1/webhook-verify</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">Public</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Cryptographic HMAC-SHA256 Signature Validator (Constant-time)</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-sky-500/15 text-sky-600">POST</span>
+              <span className="font-bold">/api/v1/webhook-demo</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">Mock</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Local In-App Webhook Listener for Testing</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Deliverables Checklist Card */}
+      <div className="t-surface p-4 space-y-3">
+        <div className="flex items-center justify-between t-border-b pb-2.5">
+          <div>
             <h3 className="font-bold text-sm heading-font">BTIN337 Final Submission Deliverables (Deadline: Dec 4, 2026)</h3>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               Evaluation criteria for Prof. Navaneeth Kamath (School of Engineering and Technology)

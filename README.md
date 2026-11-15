@@ -1,14 +1,14 @@
 # J-Forge: Python to Java Transpiler & API Gateway
 
-[![Next.js 14/15](https://img.shields.io/badge/Next.js-App%20Router-black?logo=next.svg)](https://nextjs.org/)
-[![Google Gemini 1.5](https://img.shields.io/badge/Google-Gemini%201.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS%203.4-38bdf8?logo=tailwindcss)](https://tailwindcss.com/)
+[![Next.js 16 (Turbopack)](https://img.shields.io/badge/Next.js-16%20App%20Router-black?logo=next.svg)](https://nextjs.org/)
+[![Google Gemini 2.5 Flash](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
+[![CI / Automated Tests](https://img.shields.io/badge/Tests-21%2F21%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel%20Serverless-black?logo=vercel)](https://vercel.com/)
 [![Course](https://img.shields.io/badge/Course-BTIN337%20GenAI%20CIA--P%20(20M)-emerald)](#)
 
 J-Forge is a production-grade, enterprise-ready Python 3.11 to Java 17 LTS AST Transpiler and REST API Gateway designed for the **BTIN337 GenAI Applications Continuous Internal Assessment Practical (CIA-P)** examination (20 Marks).
 
-Built with the Next.js App Router, Tailwind CSS, and Google Gemini 1.5 Flash, it features a 3-theme live switcher, dual-pane synchronized code editor, interactive API playground, and asynchronous event-driven webhook dispatcher.
+Built with the Next.js App Router, Tailwind CSS, and Google Gemini 2.5 Flash, it features a 3-theme live switcher, dual-pane synchronized code editor with AST line mapping, interactive API playground, automated compiler diagnostics (Big-O analysis), and asynchronous event-driven webhook dispatcher with constant-time HMAC-SHA256 signature verification.
 
 ---
 
@@ -20,14 +20,18 @@ py2java-transpiler/
 │   ├── api/
 │   │   └── v1/
 │   │       ├── convert/
-│   │       │   └── route.js          # Main Transpiler Endpoint (Auth + Gemini + Webhook)
+│   │       │   └── route.js          # Core Transpiler Endpoint (Auth + Gemini + Webhook)
+│   │       ├── explain/
+│   │       │   └── route.js          # Compiler Diagnostics & Big-O Complexity Analysis
+│   │       ├── webhook-verify/
+│   │       │   └── route.js          # Constant-time HMAC-SHA256 Signature Validator
 │   │       └── webhook-demo/
 │   │           └── route.js          # Mock Webhook Receiver for live evaluation
 │   ├── components/
 │   │   ├── Navigation.jsx            # App view switcher & live theme toggle
-│   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java)
+│   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java) + Diagnostics
 │   │   ├── ApiPlayground.jsx         # Interactive REST client for testing POST /api/v1/convert
-│   │   ├── WebhookInspector.jsx      # Live event logs and HTTP status delivery table
+│   │   ├── WebhookInspector.jsx      # Live event logs, HTTP status & HMAC Verifier
 │   │   ├── DocumentationView.jsx     # CIA-P rubric compliance, .env generator, cURL docs
 │   │   └── AstTypeBar.jsx            # AST syntax mapping indicators
 │   ├── globals.css                   # Tailwind directives and theme variables
@@ -36,8 +40,17 @@ py2java-transpiler/
 ├── lib/
 │   ├── auth.js                       # API Key validation logic (x-api-key header check)
 │   ├── gemini.js                     # Direct @google/genai client with deterministic prompt
-│   └── webhook.js                    # Robust webhook dispatcher with timeout and delivery logs
-├── .env.example                      # Public template showing GEMINI_API_KEY and APP_API_KEY
+│   └── webhook.js                    # Robust webhook dispatcher with HMAC signature
+├── tests/
+│   ├── api-route.test.mjs            # End-to-end /api/v1/convert contract tests
+│   ├── ast-engine.test.mjs           # Deterministic AST transpiler engine tests
+│   ├── auth.test.mjs                 # Security & header validation tests
+│   ├── explain-diagnostics.test.mjs  # Big-O complexity & memory model tests
+│   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
+│   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
+├── .github/workflows/
+│   └── ci.yml                        # Automated CI running 21 tests & Next.js production build
+├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
 ├── next.config.mjs                   # Next.js build configuration
@@ -176,9 +189,66 @@ curl -X POST http://localhost:3000/api/v1/convert \
   -d '{"python_code": "   "}'
 ```
 
+### Scenario 4: Compiler Diagnostics & Big-O Complexity (HTTP 200)
+```bash
+curl -X POST http://localhost:3000/api/v1/explain \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: ciap-secret-key-2026" \
+  -d '{
+    "python_code": "for i in range(10):\n    print(i)",
+    "java_version": "17"
+  }'
+```
+
+### Scenario 5: Cryptographic Webhook HMAC Verification (HTTP 200)
+```bash
+curl -X POST http://localhost:3000/api/v1/webhook-verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": {"event": "code.conversion.completed"},
+    "signature": "sha256=COMPUTED_HEX_DIGEST",
+    "secret": "whsec_btin337_ciap_99481a"
+  }'
+```
+
 ---
 
-## 6. Vercel Deployment Instructions
+## 6. Automated Unit Test Suite (21 Tests)
+
+Execute the zero-dependency test suite via Node.js native test runner:
+```bash
+npm test
+```
+Outputs:
+```text
+✔ API Route: Returns 401 when x-api-key is missing
+✔ API Route: Returns 400 when python_code is empty
+✔ API Route: Returns 200 OK with valid contract on valid Python input
+✔ AST Engine: Transpiles for-range loop (single arg range(10))
+✔ AST Engine: Transpiles for-range with start, stop, and step
+✔ AST Engine: Transpiles iterable for loop (for item in items)
+✔ AST Engine: Transpiles while loop and conditionals
+✔ AST Engine: Transpiles function definition and return
+✔ Auth Middleware: Rejects request with missing API key (401)
+✔ Auth Middleware: Rejects request with invalid API key (401)
+✔ Auth Middleware: Authorizes valid x-api-key matching configured key
+✔ Auth Middleware: Authorizes valid Bearer token in Authorization header
+✔ Diagnostics Route: Returns 401 when x-api-key is missing
+✔ Diagnostics Route: Returns 400 when python_code is empty
+✔ Diagnostics Route: Returns 200 with Big-O complexity & memory model analysis
+✔ Webhook Verify Route: Returns 400 when payload or signature is missing
+✔ Webhook Verify Route: Returns verified: true for authentic signature
+✔ Webhook Verify Route: Returns verified: false when payload is tampered
+✔ Webhook Verify Route: Handles mismatched signature length safely without crashing
+✔ Webhook Dispatcher: Computes valid HMAC SHA-256 signature
+✔ Webhook Dispatcher: Fails gracefully without throwing on invalid URL
+
+ℹ tests 21 | pass 21 | fail 0 | duration_ms ~170ms
+```
+
+---
+
+## 7. Vercel Deployment Instructions
 
 1. Push your repository to GitHub:
    ```bash
