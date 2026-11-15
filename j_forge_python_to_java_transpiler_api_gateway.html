@@ -1364,29 +1364,56 @@ public class Solution {
         let javaResult = '';
         let summaryNote = '';
 
-        // Option A: If user configured a live Google AI Studio Gemini API Key
-        if (liveGeminiApiKey) {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(liveGeminiApiKey)}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{
-                  parts: [{
-                    text: `Convert the following Python 3 code into clean, idiomatic, compilable ${targetVer} code wrapped inside 'public class Solution'. Return ONLY raw Java code without markdown backticks:\n\n${pyCode}`
-                  }]
-                }],
-                generationConfig: { temperature: 0.15 }
-              })
+        // Option 1: Try local backend Next.js route if available
+        try {
+          const localRes = await fetch('/api/v1/convert', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': validGatewayApiKey,
+            },
+            body: JSON.stringify({
+              python_code: pyCode,
+              java_version: targetVer.replace(/[^0-9]/g, '') || '17',
+            }),
+          });
+          if (localRes.ok) {
+            const resData = await localRes.json();
+            const returnedJava = resData?.data?.java_code || resData?.java_code;
+            if (returnedJava) {
+              javaResult = returnedJava;
+              summaryNote = resData?.summary || `Synthesized via POST /api/v1/convert (${targetVer}).`;
             }
-          );
-          const data = await response.json();
-          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          javaResult = rawText.replace(/```java/gi, '').replace(/```/g, '').trim();
-          summaryNote = `Synthesized live via Google Gemini 1.5 Flash API (${targetVer}).`;
-        } else {
-          // Option B: Deterministic Built-in AST Transpiler
+          }
+        } catch (_) {}
+
+        // Option A: If user configured a live Google AI Studio Gemini API Key
+        if (!javaResult && liveGeminiApiKey) {
+          try {
+            const response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(liveGeminiApiKey)}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{
+                    parts: [{
+                      text: `Convert the following Python 3 code into clean, idiomatic, compilable ${targetVer} code wrapped inside 'public class Solution'. Return ONLY raw Java code without markdown backticks:\n\n${pyCode}`
+                    }]
+                  }],
+                  generationConfig: { temperature: 0.15 }
+                })
+              }
+            );
+            const data = await response.json();
+            const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            javaResult = rawText.replace(/```java/gi, '').replace(/```/g, '').trim();
+            summaryNote = `Synthesized live via Google Gemini API (${targetVer}).`;
+          } catch (_) {}
+        }
+
+        // Option B: Deterministic Built-in AST Transpiler (Upgraded with Loop & Indent support)
+        if (!javaResult) {
           await new Promise(r => setTimeout(r, 180));
           const matchingPreset = Object.values(PRESETS).find(p => p.py.trim() === pyCode);
           if (matchingPreset) {
@@ -1418,58 +1445,176 @@ public class Solution {
 
     /* Rule-based fallback transpiler for arbitrary custom Python code */
     function synthesizeCustomPythonToJava(pyCode, targetVer) {
-      const lines = pyCode.split('\n');
+      const rawLines = pyCode.split('\n');
       const methods = [];
       const mainStatements = [];
       let inFunction = false;
+      const blockStack = [];
 
-      for (let rawLine of lines) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith('#') || line.startsWith('"""')) continue;
+      const pushCode = (str, indentLevel = 8) => {
+        const pad = ' '.repeat(Math.max(4, indentLevel));
+        if (inFunction) {
+          methods.push(pad + str);
+        } else {
+          mainStatements.push(pad + str);
+        }
+      };
 
-        if (line.startsWith('def ')) {
+      const closeBlocksForIndent = (currentPyIndent) => {
+        while (blockStack.length > 0 && blockStack[blockStack.length - 1].pyIndent >= currentPyIndent) {
+          const top = blockStack.pop();
+          pushCode('}', top.outIndent);
+          if (top.kind === 'function') {
+            inFunction = false;
+          }
+        }
+      };
+
+      for (let idx = 0; idx < rawLines.length; idx++) {
+        const rawLine = rawLines[idx];
+        if (!rawLine.trim() || rawLine.trim().startsWith('#') || rawLine.trim().startsWith('"""')) {
+          continue;
+        }
+
+        const trimmed = rawLine.trim();
+        const leadingSpaces = rawLine.search(/\S|$/);
+
+        // Pop blocks if indentation decreased
+        closeBlocksForIndent(leadingSpaces);
+
+        const currentOutIndent = inFunction ? 8 + blockStack.length * 4 : 8 + blockStack.length * 4;
+
+        // 1. Function definition: def foo(a, b):
+        if (trimmed.startsWith('def ')) {
           inFunction = true;
-          const match = line.match(/def\s+(\w+)\s*\((.*?)\)/);
-          const fnName = match ? match[1] : 'customFunction';
-          const params = match && match[2]
-            ? match[2].split(',').map(p => {
+          const match = trimmed.match(/^def\s+(\w+)\s*\((.*?)\):?/);
+          const fnName = match ? match[1] : 'customMethod';
+          const rawParams = match && match[2] ? match[2].trim() : '';
+          const params = rawParams
+            ? rawParams.split(',').map((p) => {
                 const clean = p.split(':')[0].split('=')[0].trim();
                 return clean ? `Object ${clean}` : '';
               }).filter(Boolean).join(', ')
             : '';
+
           methods.push(`    public static Object ${fnName}(${params}) {`);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: 4, kind: 'function' });
           continue;
         }
 
-        if (line.startsWith('return ')) {
-          methods.push(`        return ${line.replace('return ', '')};`);
-          methods.push(`    }\n`);
-          inFunction = false;
+        // 2. Return statement
+        if (trimmed.startsWith('return ') || trimmed === 'return') {
+          const retVal = trimmed.replace(/^return\s*/, '').replace(/;$/, '');
+          pushCode(`return ${retVal || 'null'};`, currentOutIndent);
           continue;
         }
 
-        if (line.startsWith('print(')) {
-          const inner = line.slice(6, -1)
+        // 3. For range loop: for i in range(10): / for i in range(1, 10, 2):
+        const rangeMatch = trimmed.match(/^for\s+(\w+)\s+in\s+range\((.*?)\):?/);
+        if (rangeMatch) {
+          const varName = rangeMatch[1];
+          const args = rangeMatch[2].split(',').map((s) => s.trim());
+          let loopHeader = '';
+          if (args.length === 1) {
+            loopHeader = `for (int ${varName} = 0; ${varName} < ${args[0]}; ${varName}++) {`;
+          } else if (args.length === 2) {
+            loopHeader = `for (int ${varName} = ${args[0]}; ${varName} < ${args[1]}; ${varName}++) {`;
+          } else if (args.length >= 3) {
+            loopHeader = `for (int ${varName} = ${args[0]}; ${varName} < ${args[1]}; ${varName} += ${args[2]}) {`;
+          }
+          pushCode(loopHeader, currentOutIndent);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent, kind: 'loop' });
+          continue;
+        }
+
+        // 4. For iterable loop: for item in items:
+        const iterMatch = trimmed.match(/^for\s+(\w+)\s+in\s+(.*?):?/);
+        if (iterMatch) {
+          const varName = iterMatch[1];
+          const iterable = iterMatch[2].replace(/:$/, '').trim();
+          pushCode(`for (var ${varName} : ${iterable}) {`, currentOutIndent);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent, kind: 'loop' });
+          continue;
+        }
+
+        // 5. While loop: while x > 0:
+        const whileMatch = trimmed.match(/^while\s+(.*?):?$/);
+        if (whileMatch) {
+          const condition = whileMatch[1].replace(/:$/, '').trim();
+          pushCode(`while (${condition}) {`, currentOutIndent);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent, kind: 'while' });
+          continue;
+        }
+
+        // 6. If / elif / else
+        const ifMatch = trimmed.match(/^if\s+(.*?):?$/);
+        if (ifMatch) {
+          const condition = ifMatch[1].replace(/:$/, '').trim();
+          pushCode(`if (${condition}) {`, currentOutIndent);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent, kind: 'if' });
+          continue;
+        }
+
+        const elifMatch = trimmed.match(/^elif\s+(.*?):?$/);
+        if (elifMatch) {
+          const condition = elifMatch[1].replace(/:$/, '').trim();
+          if (blockStack.length > 0) blockStack.pop();
+          pushCode(`} else if (${condition}) {`, currentOutIndent - 4);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent - 4, kind: 'elif' });
+          continue;
+        }
+
+        if (trimmed === 'else:' || trimmed === 'else') {
+          if (blockStack.length > 0) blockStack.pop();
+          pushCode(`} else {`, currentOutIndent - 4);
+          blockStack.push({ pyIndent: leadingSpaces, outIndent: currentOutIndent - 4, kind: 'else' });
+          continue;
+        }
+
+        // 7. Print statement: print(...)
+        if (trimmed.startsWith('print(')) {
+          const inner = trimmed.slice(6, trimmed.lastIndexOf(')'))
             .replace(/^f["'](.*)["']$/, '"$1"')
             .replace(/\{(\w+)\}/g, '" + $1 + "');
-          const stmt = `System.out.println(${inner});`;
-          if (inFunction) methods.push(`        ${stmt}`);
-          else mainStatements.push(`        ${stmt}`);
+          pushCode(`System.out.println(${inner});`, currentOutIndent);
           continue;
         }
 
-        if (/^\w+\s*=\s*.+/.test(line) && !line.startsWith('if ')) {
-          const [lhs, rhs] = line.split('=').map(s => s.trim());
-          const type = /^["']/.test(rhs) ? 'String' : /^\d+$/.test(rhs) ? 'int' : /^\d+\.\d+$/.test(rhs) ? 'double' : 'var';
-          const stmt = `${type} ${lhs} = ${rhs};`;
-          if (inFunction) methods.push(`        ${stmt}`);
-          else mainStatements.push(`        ${stmt}`);
+        // 8. Variable assignment: x = 10, name = "John", items = [1, 2]
+        if (/^\w+\s*=\s*.+/.test(trimmed)) {
+          const eqIdx = trimmed.indexOf('=');
+          const lhs = trimmed.substring(0, eqIdx).trim();
+          const rhs = trimmed.substring(eqIdx + 1).trim();
+
+          let stmt = '';
+          if (/^\[.*\]$/.test(rhs)) {
+            const elements = rhs.slice(1, -1).trim();
+            stmt = `List<Object> ${lhs} = new ArrayList<>(List.of(${elements}));`;
+          } else if (/^\{.*\}$/.test(rhs)) {
+            stmt = `Map<Object, Object> ${lhs} = new HashMap<>();`;
+          } else if (/^["']/.test(rhs)) {
+            stmt = `String ${lhs} = ${rhs};`;
+          } else if (/^\d+$/.test(rhs)) {
+            stmt = `int ${lhs} = ${rhs};`;
+          } else if (/^\d+\.\d+$/.test(rhs)) {
+            stmt = `double ${lhs} = ${rhs};`;
+          } else if (rhs === 'True' || rhs === 'False') {
+            stmt = `boolean ${lhs} = ${rhs.toLowerCase()};`;
+          } else {
+            stmt = `var ${lhs} = ${rhs};`;
+          }
+
+          pushCode(stmt, currentOutIndent);
+          continue;
         }
+
+        // Default: append line as statement with semicolon
+        const cleanStmt = trimmed.endsWith(';') ? trimmed : `${trimmed};`;
+        pushCode(cleanStmt, currentOutIndent);
       }
 
-      if (inFunction) {
-        methods.push(`        return null;\n    }\n`);
-      }
+      // Close any remaining open blocks
+      closeBlocksForIndent(0);
 
       return `package com.jforge.ciap;
 
@@ -1477,11 +1622,11 @@ import java.util.*;
 
 /**
  * Transpiled by J-Forge AST Engine (Target: ${targetVer})
- * Custom Python Script Translation
+ * Source: Python 3.11 AST
  */
 public class Solution {
 
-${methods.length ? methods.join('\n') : '    // Direct script statements wrapped in main()'}
+${methods.length ? methods.join('\n') : '    // Script statements executed inside main()'}
     public static void main(String[] args) {
 ${mainStatements.length ? mainStatements.join('\n') : '        System.out.println("J-Forge AST Execution Verified.");'}
     }
@@ -1812,6 +1957,31 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       setTheme('cupertino');
       loadPreset('bank');
       loadApiScenario('valid');
+
+      const pyEditor = document.getElementById('pythonEditor');
+      if (pyEditor) {
+        pyEditor.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            const { selectionStart, selectionEnd, value } = pyEditor;
+            pyEditor.value = value.substring(0, selectionStart) + '    ' + value.substring(selectionEnd);
+            pyEditor.selectionStart = pyEditor.selectionEnd = selectionStart + 4;
+            syncLineNumbers('pythonEditor', 'pythonGutter');
+          } else if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            const { selectionStart, selectionEnd, value } = pyEditor;
+            const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+            const lineBefore = value.substring(lineStart, selectionStart);
+            const match = lineBefore.match(/^[ ]*/);
+            let indent = match ? match[0] : '';
+            if (lineBefore.trim().endsWith(':')) indent += '    ';
+            const ins = '\n' + indent;
+            pyEditor.value = value.substring(0, selectionStart) + ins + value.substring(selectionEnd);
+            pyEditor.selectionStart = pyEditor.selectionEnd = selectionStart + ins.length;
+            syncLineNumbers('pythonEditor', 'pythonGutter');
+          }
+        });
+      }
     };
   </script>
 </body>
