@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server.js';
 import { validateApiKey } from '../../../../lib/auth.js';
 import { GoogleGenAI } from '@google/genai';
+import { checkRateLimit } from '../../../../lib/rate-limit.js';
 
 /**
  * POST /api/v1/explain
  * Compiler Diagnostics & AST Transformation Analysis Endpoint
  */
 export async function POST(request) {
-  // 1. Authenticate via x-api-key header
+  // 1. Authenticate via x-api-key header (Timing-safe)
   const auth = validateApiKey(request);
   if (!auth.isValid) {
     return auth.response;
+  }
+
+  // 2. Abuse Prevention: Rate Limiting Guard
+  const rateLimit = checkRateLimit(request, { limit: 60 });
+  if (!rateLimit.allowed) {
+    return rateLimit.response;
   }
 
   // 2. Parse request body

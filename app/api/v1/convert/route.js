@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server.js';
 import { validateApiKey } from '../../../../lib/auth.js';
 import { transpilePythonToJava } from '../../../../lib/gemini.js';
 import { dispatchWebhook } from '../../../../lib/webhook.js';
+import { checkRateLimit } from '../../../../lib/rate-limit.js';
 
 /**
  * POST /api/v1/convert
@@ -10,10 +11,16 @@ import { dispatchWebhook } from '../../../../lib/webhook.js';
 export async function POST(request) {
   const startTime = performance.now();
 
-  // 1. Authenticate via x-api-key header
+  // 1. Authenticate via x-api-key header (Constant-time timing-safe)
   const auth = validateApiKey(request);
   if (!auth.isValid) {
     return auth.response;
+  }
+
+  // 2. Abuse Prevention: Rate Limiting Guard (60 req/min)
+  const rateLimit = checkRateLimit(request, { limit: 60 });
+  if (!rateLimit.allowed) {
+    return rateLimit.response;
   }
 
   // 2. Parse and validate JSON request body

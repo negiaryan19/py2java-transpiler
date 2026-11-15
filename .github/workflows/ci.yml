@@ -24,7 +24,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Automated Test Suite (21 Unit Tests)
+      - name: Run Automated Test Suite (27 Unit Tests)
         run: npm test
         env:
           APP_API_KEY: "ciap-secret-key-2026"

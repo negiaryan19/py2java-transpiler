@@ -19,17 +19,31 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Local Environment Variables & Secrets
+# Local Environment Variables & Secrets (Hardened)
 .env
+.env.*
 .env*.local
 .env.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# Credentials & Certificate Files
+*.pem
+*.key
+*.cert
+*.crt
+credentials.json
+service-account*.json
 
 # Vercel Deployment
 .vercel
 
 # macOS System Files
 .DS_Store
-*.pem
+.AppleDouble
+.LSOverride
 
 # IDE / Editor configuration
 .idea/

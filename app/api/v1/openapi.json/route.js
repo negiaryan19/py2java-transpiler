@@ -1,0 +1,138 @@
+import { NextResponse } from 'next/server.js';
+
+/**
+ * GET /api/v1/openapi.json
+ * OpenAPI 3.1.0 Specification for J-Forge API Gateway
+ */
+export async function GET() {
+  const spec = {
+    openapi: '3.1.0',
+    info: {
+      title: 'J-Forge: Python to Java Transpiler & API Gateway',
+      version: '1.2.0',
+      description:
+        'Production GenAI REST API Gateway transpiling Python 3.11 scripts into strongly typed Java 17/21 LTS OOP code with asynchronous HMAC-SHA256 webhooks and compiler diagnostics. Course BTIN337 CIA-P (20 Marks).',
+      contact: {
+        name: 'Aryan Negi',
+        email: 'AryanX.mac@gmail.com',
+        url: 'https://github.com/negiaryan19/py2java-transpiler',
+      },
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+        description: 'Local Development Server',
+      },
+      {
+        url: 'https://py2java-transpiler.vercel.app',
+        description: 'Vercel Serverless Production Deployment',
+      },
+    ],
+    components: {
+      securitySchemes: {
+        ApiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-api-key',
+          description: 'Access token configured in APP_API_KEY environment variable.',
+        },
+        BearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'Token',
+          description: 'Authorization: Bearer <token>',
+        },
+      },
+    },
+    paths: {
+      '/api/v1/convert': {
+        post: {
+          summary: 'Transpile Python code to Java OOP and dispatch webhook',
+          security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code'],
+                  properties: {
+                    python_code: { type: 'string', example: 'def add(a: int, b: int) -> int:\n    return a + b' },
+                    java_version: { type: 'string', default: '17', example: '17' },
+                    webhook_url: { type: 'string', format: 'uri', example: 'https://webhook.site/demo-url' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Code successfully transpiled' },
+            '400': { description: 'Malformed JSON or missing python_code' },
+            '401': { description: 'Missing or invalid authentication credentials' },
+            '429': { description: 'Rate limit exceeded (60 req/min)' },
+            '500': { description: 'Internal compilation or timeout exception' },
+          },
+        },
+      },
+      '/api/v1/explain': {
+        post: {
+          summary: 'Compiler Diagnostics & Big-O Complexity Analysis',
+          security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    java_version: { type: 'string', default: '17' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Diagnostics successfully computed' },
+            '401': { description: 'Unauthorized' },
+          },
+        },
+      },
+      '/api/v1/webhook-verify': {
+        post: {
+          summary: 'Cryptographic HMAC-SHA256 Signature Validator',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['payload', 'signature'],
+                  properties: {
+                    payload: { type: 'object' },
+                    signature: { type: 'string' },
+                    secret: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Verification result returned' },
+          },
+        },
+      },
+      '/api/v1/health': {
+        get: {
+          summary: 'Health Check & Security Probe',
+          responses: {
+            '200': { description: 'Service is healthy' },
+          },
+        },
+      },
+    },
+  };
+
+  return NextResponse.json(spec, { status: 200 });
+}

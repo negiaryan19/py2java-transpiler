@@ -49,6 +49,47 @@ export default function TranspilerStudio({
   const javaTextareaRef = useRef(null);
   const javaGutterRef = useRef(null);
 
+  const handleDownloadPom = () => {
+    const v = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
+    const pomContent = `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jforge.ciap</groupId>
+    <artifactId>transpiled-solution</artifactId>
+    <version>1.0.0</version>
+    <name>J-Forge Java Solution</name>
+
+    <properties>
+        <maven.compiler.source>${v}</maven.compiler.source>
+        <maven.compiler.target>${v}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>${v}</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>`;
+    const blob = new Blob([pomContent], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'pom.xml';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Synchronized line gutter scroll handlers
   const handlePyScroll = (e) => {
     if (pyGutterRef.current) {
@@ -599,6 +640,14 @@ export default function TranspilerStudio({
               >
                 <Download className="w-3 h-3" />
                 <span>.java</span>
+              </button>
+              <button
+                onClick={handleDownloadPom}
+                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
+                title="Download Maven pom.xml project descriptor"
+              >
+                <Download className="w-3 h-3" />
+                <span>pom.xml</span>
               </button>
               <button
                 onClick={() => copyToClipboard(javaCode, 'java', 'Java code copied')}

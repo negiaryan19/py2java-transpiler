@@ -2,7 +2,7 @@
 
 [![Next.js 16 (Turbopack)](https://img.shields.io/badge/Next.js-16%20App%20Router-black?logo=next.svg)](https://nextjs.org/)
 [![Google Gemini 2.5 Flash](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
-[![CI / Automated Tests](https://img.shields.io/badge/Tests-21%2F21%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
+[![CI / Automated Tests](https://img.shields.io/badge/Tests-27%2F27%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel%20Serverless-black?logo=vercel)](https://vercel.com/)
 [![Course](https://img.shields.io/badge/Course-BTIN337%20GenAI%20CIA--P%20(20M)-emerald)](#)
 
@@ -23,13 +23,17 @@ py2java-transpiler/
 │   │       │   └── route.js          # Core Transpiler Endpoint (Auth + Gemini + Webhook)
 │   │       ├── explain/
 │   │       │   └── route.js          # Compiler Diagnostics & Big-O Complexity Analysis
+│   │       ├── health/
+│   │       │   └── route.js          # Gateway Health, Security & System Diagnostics Probe
+│   │       ├── openapi.json/
+│   │       │   └── route.js          # Full OpenAPI 3.1.0 JSON Schema Specification
 │   │       ├── webhook-verify/
 │   │       │   └── route.js          # Constant-time HMAC-SHA256 Signature Validator
 │   │       └── webhook-demo/
 │   │           └── route.js          # Mock Webhook Receiver for live evaluation
 │   ├── components/
 │   │   ├── Navigation.jsx            # App view switcher & live theme toggle
-│   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java) + Diagnostics
+│   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java) + Maven pom.xml
 │   │   ├── ApiPlayground.jsx         # Interactive REST client for testing POST /api/v1/convert
 │   │   ├── WebhookInspector.jsx      # Live event logs, HTTP status & HMAC Verifier
 │   │   ├── DocumentationView.jsx     # CIA-P rubric compliance, .env generator, cURL docs
@@ -38,18 +42,21 @@ py2java-transpiler/
 │   ├── layout.jsx                    # Root layout with metadata and fonts
 │   └── page.jsx                      # Main client page orchestrating the 4 views
 ├── lib/
-│   ├── auth.js                       # API Key validation logic (x-api-key header check)
+│   ├── auth.js                       # Constant-time timing-safe API key validator
+│   ├── env.js                        # Environment validator & secret masking guard
 │   ├── gemini.js                     # Direct @google/genai client with deterministic prompt
+│   ├── rate-limit.js                 # Sliding-window rate-limiting abuse protection
 │   └── webhook.js                    # Robust webhook dispatcher with HMAC signature
 ├── tests/
 │   ├── api-route.test.mjs            # End-to-end /api/v1/convert contract tests
 │   ├── ast-engine.test.mjs           # Deterministic AST transpiler engine tests
 │   ├── auth.test.mjs                 # Security & header validation tests
 │   ├── explain-diagnostics.test.mjs  # Big-O complexity & memory model tests
+│   ├── security-gateway.test.mjs     # Rate limiting, OpenAPI, Health probe & env tests
 │   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
 │   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
 ├── .github/workflows/
-│   └── ci.yml                        # Automated CI running 21 tests & Next.js production build
+│   └── ci.yml                        # Automated CI running 27 tests & Next.js production build
 ├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
@@ -213,7 +220,7 @@ curl -X POST http://localhost:3000/api/v1/webhook-verify \
 
 ---
 
-## 6. Automated Unit Test Suite (21 Tests)
+## 6. Automated Unit Test Suite (27 Tests)
 
 Execute the zero-dependency test suite via Node.js native test runner:
 ```bash
@@ -236,6 +243,12 @@ Outputs:
 ✔ Diagnostics Route: Returns 401 when x-api-key is missing
 ✔ Diagnostics Route: Returns 400 when python_code is empty
 ✔ Diagnostics Route: Returns 200 with Big-O complexity & memory model analysis
+✔ Security Guard: maskSecret correctly obscures credentials
+✔ Security Guard: generateSecureSecret generates high-entropy random keys
+✔ Security Guard: getSecurityAudit reports timing-safe and active protections
+✔ Rate Limiter: Allows requests under limit and blocks on abuse (429)
+✔ Health Route: Returns 200 OK with security diagnostics and route catalog
+✔ OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 6 endpoints
 ✔ Webhook Verify Route: Returns 400 when payload or signature is missing
 ✔ Webhook Verify Route: Returns verified: true for authentic signature
 ✔ Webhook Verify Route: Returns verified: false when payload is tampered
@@ -243,7 +256,7 @@ Outputs:
 ✔ Webhook Dispatcher: Computes valid HMAC SHA-256 signature
 ✔ Webhook Dispatcher: Fails gracefully without throwing on invalid URL
 
-ℹ tests 21 | pass 21 | fail 0 | duration_ms ~170ms
+ℹ tests 27 | pass 27 | fail 0 | duration_ms ~180ms
 ```
 
 ---

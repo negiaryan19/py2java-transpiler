@@ -161,7 +161,7 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
             </p>
           </div>
           <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
-            4 Production Routes
+            6 Production Routes
           </span>
         </div>
         <div className="space-y-2 font-mono text-xs">
@@ -199,6 +199,24 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
               <span className="text-[10px] opacity-70 border border-current px-1 rounded">Mock</span>
             </div>
             <span style={{ color: 'var(--text-secondary)' }}>Local In-App Webhook Listener for Testing</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-teal-500/15 text-teal-600">GET</span>
+              <span className="font-bold">/api/v1/health</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">Public</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Gateway Health, Memory & Security Diagnostics Probe</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-blue-500/15 text-blue-600">GET</span>
+              <span className="font-bold">/api/v1/openapi.json</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">Public</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>OpenAPI 3.1.0 Full Specification for Swagger / Postman</span>
           </div>
         </div>
       </div>
