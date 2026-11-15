@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { validateApiKey } from '../../../../lib/auth';
-import { transpilePythonToJava } from '../../../../lib/gemini';
-import { dispatchWebhook } from '../../../../lib/webhook';
+import { NextResponse } from 'next/server.js';
+import { validateApiKey } from '../../../../lib/auth.js';
+import { transpilePythonToJava } from '../../../../lib/gemini.js';
+import { dispatchWebhook } from '../../../../lib/webhook.js';
 
 /**
  * POST /api/v1/convert

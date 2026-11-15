@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState } from 'react';
 import {
   Layers,
   Zap,
@@ -12,6 +12,9 @@ import {
   CheckCheck,
   AlignLeft,
   Terminal,
+  GitCompare,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 
@@ -62,6 +65,57 @@ export default function TranspilerStudio({
     const count = (javaCode.match(/\n/g) || []).length + 1;
     return Array.from({ length: count }, (_, i) => i + 1);
   }, [javaCode]);
+
+  // Interactive AST Syntax Line Mapper state
+  const [hoveredPyLine, setHoveredPyLine] = useState(null);
+  const [hoveredJavaLine, setHoveredJavaLine] = useState(null);
+  const [selectedAstRule, setSelectedAstRule] = useState(null);
+
+  // Compute bidirectional mapping between Python statements and Java AST blocks
+  const astLineMap = useMemo(() => {
+    const pyArr = pythonCode.split('\n');
+    const javaArr = javaCode.split('\n');
+    const pyToJava = {};
+    const javaToPy = {};
+
+    pyArr.forEach((pyLine, pyIdx) => {
+      const trimmed = pyLine.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      let matchIdx = -1;
+      if (trimmed.startsWith('class ')) {
+        const name = trimmed.split(' ')[1]?.split(':')[0]?.split('(')[0];
+        matchIdx = javaArr.findIndex((jl) => jl.includes(`class ${name}`));
+      } else if (trimmed.startsWith('def __init__')) {
+        matchIdx = javaArr.findIndex(
+          (jl) => jl.includes('public ') && jl.includes('(') && !jl.includes('void ') && !jl.includes('static ')
+        );
+      } else if (trimmed.startsWith('def ')) {
+        const fnName = trimmed.match(/def\s+(\w+)/)?.[1];
+        if (fnName) {
+          const camelName = fnName.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+          matchIdx = javaArr.findIndex((jl) => jl.includes(` ${fnName}(`) || jl.includes(` ${camelName}(`));
+        }
+      } else if (trimmed.startsWith('for ') && trimmed.includes('in range(')) {
+        const varName = trimmed.match(/for\s+(\w+)\s+in/)?.[1];
+        matchIdx = javaArr.findIndex((jl) => jl.includes(`for (int ${varName}`));
+      } else if (trimmed.startsWith('for ') && trimmed.includes('in ')) {
+        const varName = trimmed.match(/for\s+(\w+)\s+in/)?.[1];
+        matchIdx = javaArr.findIndex((jl) => jl.includes(`for (var ${varName}`) || jl.includes(`for (int ${varName}`));
+      } else if (trimmed.startsWith('print(')) {
+        matchIdx = javaArr.findIndex((jl) => jl.includes('System.out.println(') || jl.includes('System.out.printf('));
+      } else if (trimmed.includes('__main__')) {
+        matchIdx = javaArr.findIndex((jl) => jl.includes('public static void main'));
+      }
+
+      if (matchIdx !== -1) {
+        pyToJava[pyIdx + 1] = matchIdx + 1;
+        javaToPy[matchIdx + 1] = pyIdx + 1;
+      }
+    });
+
+    return { pyToJava, javaToPy };
+  }, [pythonCode, javaCode]);
 
   // Code Formatter to normalize indentation to standard 4-spaces
   const handleAutoFormat = () => {
@@ -329,7 +383,39 @@ export default function TranspilerStudio({
       </div>
 
       {/* Dynamic AST Type & Syntax Mapping Pill Bar */}
-      <AstTypeBar pythonCode={pythonCode} />
+      <AstTypeBar
+        pythonCode={pythonCode}
+        selectedRule={selectedAstRule}
+        onSelectRule={setSelectedAstRule}
+      />
+
+      {/* Live AST Statement Tracer Bar */}
+      {(hoveredPyLine || hoveredJavaLine) && (
+        <div className="px-3.5 py-2 rounded t-surface border border-emerald-500/30 text-xs font-mono flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">AST Syntax Tracing:</span>
+            {hoveredPyLine ? (
+              <>
+                <span>Python Line {hoveredPyLine}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="font-bold underline text-emerald-600 dark:text-emerald-400">
+                  {astLineMap.pyToJava[hoveredPyLine] ? `Java Line ${astLineMap.pyToJava[hoveredPyLine]}` : 'Encapsulated inside main() wrapper'}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>Java Line {hoveredJavaLine}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="font-bold underline text-emerald-600 dark:text-emerald-400">
+                  {astLineMap.javaToPy[hoveredJavaLine] ? `Python Line ${astLineMap.javaToPy[hoveredJavaLine]}` : 'Generated Boilerplate / Wrapper'}
+                </span>
+              </>
+            )}
+          </div>
+          <span className="text-[11px] opacity-70 hidden sm:inline">Hover over line numbers to trace AST mapping</span>
+        </div>
+      )}
 
       {/* Dual macOS Window Chrome Code Editors */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -389,11 +475,32 @@ export default function TranspilerStudio({
           <div className="flex-1 flex overflow-hidden relative">
             <div
               ref={pyGutterRef}
-              className="editor-gutter w-11 py-3.5 px-2 font-mono text-xs t-border-r select-none overflow-hidden"
+              className="editor-gutter w-11 py-3.5 px-1 font-mono text-xs t-border-r select-none overflow-hidden"
             >
-              {pyLines.map((num) => (
-                <div key={num}>{num}</div>
-              ))}
+              {pyLines.map((num) => {
+                const isHovered = hoveredPyLine === num;
+                const isTargetMapped = hoveredJavaLine && astLineMap.javaToPy[hoveredJavaLine] === num;
+                const hasMapping = astLineMap.pyToJava[num];
+                return (
+                  <div
+                    key={num}
+                    onMouseEnter={() => setHoveredPyLine(num)}
+                    onMouseLeave={() => setHoveredPyLine(null)}
+                    className={`cursor-pointer transition-all duration-150 px-1 text-center rounded-xs ${
+                      isHovered
+                        ? 'bg-amber-400 text-black font-bold shadow-xs scale-105'
+                        : isTargetMapped
+                        ? 'bg-emerald-500 text-black font-bold shadow-xs scale-105'
+                        : hasMapping
+                        ? 'hover:text-emerald-500 font-medium'
+                        : 'opacity-65'
+                    }`}
+                    title={hasMapping ? `AST Mapped to Java Line ${hasMapping}` : undefined}
+                  >
+                    {num}
+                  </div>
+                );
+              })}
             </div>
             <textarea
               ref={pyTextareaRef}
@@ -466,11 +573,32 @@ export default function TranspilerStudio({
           <div className="flex-1 flex overflow-hidden relative">
             <div
               ref={javaGutterRef}
-              className="editor-gutter w-11 py-3.5 px-2 font-mono text-xs t-border-r select-none overflow-hidden"
+              className="editor-gutter w-11 py-3.5 px-1 font-mono text-xs t-border-r select-none overflow-hidden"
             >
-              {javaLines.map((num) => (
-                <div key={num}>{num}</div>
-              ))}
+              {javaLines.map((num) => {
+                const isHovered = hoveredJavaLine === num;
+                const isSourceMapped = hoveredPyLine && astLineMap.pyToJava[hoveredPyLine] === num;
+                const hasMapping = astLineMap.javaToPy[num];
+                return (
+                  <div
+                    key={num}
+                    onMouseEnter={() => setHoveredJavaLine(num)}
+                    onMouseLeave={() => setHoveredJavaLine(null)}
+                    className={`cursor-pointer transition-all duration-150 px-1 text-center rounded-xs ${
+                      isHovered
+                        ? 'bg-amber-400 text-black font-bold shadow-xs scale-105'
+                        : isSourceMapped
+                        ? 'bg-emerald-500 text-black font-bold shadow-xs scale-105'
+                        : hasMapping
+                        ? 'hover:text-emerald-500 font-medium'
+                        : 'opacity-65'
+                    }`}
+                    title={hasMapping ? `AST Mapped from Python Line ${hasMapping}` : undefined}
+                  >
+                    {num}
+                  </div>
+                );
+              })}
             </div>
             <textarea
               ref={javaTextareaRef}
