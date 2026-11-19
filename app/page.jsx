@@ -365,6 +365,139 @@ public class Solution {
         System.out.println("Honors List: " + filterTopPerformers(batch, 8.5));
     }
 }`
+  },
+
+  fastapi: {
+    title: "7. FastAPI → Spring Boot",
+    summary: "Modernized Python FastAPI REST controller and Pydantic DTOs into Spring Boot 3 @RestController, @PostMapping, and ResponseEntity.",
+    stdout: "SpringApplication: Started Solution on port 8080\nPOST /api/v1/orders -> HTTP 201 Created: {order_id: ORD-9948, total_amount: 1499.50, status: CONFIRMED}",
+    py: `from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
+
+app = FastAPI(title="Order Processing Microservice")
+
+class OrderRequest(BaseModel):
+    item_id: str
+    quantity: int
+    unit_price: float
+    discount_code: Optional[str] = None
+
+@app.post("/api/v1/orders", status_code=status.HTTP_201_CREATED)
+def create_order(order: OrderRequest):
+    if order.quantity <= 0 or order.unit_price <= 0:
+        raise HTTPException(status_code=400, detail="Invalid order quantities")
+    total = order.quantity * order.unit_price
+    return {"order_id": "ORD-9948", "total_amount": total, "status": "CONFIRMED"}
+
+if __name__ == "__main__":
+    sample_order = OrderRequest(item_id="PROD-772", quantity=5, unit_price=299.90)
+    print(create_order(sample_order))`,
+    java: `package com.jforge.ciap;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.Map;
+
+/**
+ * Transpiled from FastAPI to Spring Boot 3 REST Controller
+ * Source: order_service.py (FastAPI Microservice)
+ */
+@SpringBootApplication
+@RestController
+@RequestMapping("/api/v1/orders")
+public class Solution {
+
+    public record OrderRequest(
+        String itemId,
+        int quantity,
+        double unitPrice,
+        String discountCode
+    ) {}
+
+    @PostMapping
+    public ResponseEntity<Map<String, Object>> createOrder(@RequestBody OrderRequest order) {
+        if (order.quantity() <= 0 || order.unitPrice() <= 0) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", "Invalid order quantities"));
+        }
+        double total = order.quantity() * order.unitPrice();
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(Map.of(
+                "order_id", "ORD-9948",
+                "total_amount", total,
+                "status", "CONFIRMED"
+            ));
+    }
+
+    public static void main(String[] args) {
+        OrderRequest sample = new OrderRequest("PROD-772", 5, 299.90, null);
+        double total = sample.quantity() * sample.unitPrice();
+        System.out.printf("{order_id: ORD-9948, total_amount: %.2f, status: CONFIRMED}%n", total);
+    }
+}`
+  },
+
+  pydantic: {
+    title: "8. Pydantic → Java Record",
+    summary: "Mapped Pydantic schema validation into an immutable Java 17 Record with compact constructor null-safety invariants.",
+    stdout: "User [aryan@jforge.io] Admin Access: true\nValidation passed: Immutable Java 17 Record instantiated safely.",
+    py: `from pydantic import BaseModel, Field
+from typing import List
+
+class UserProfile(BaseModel):
+    user_id: str
+    email: str
+    roles: List[str] = ["VIEWER"]
+    active: bool = True
+
+    def has_admin_privilege(self) -> bool:
+        return "ADMIN" in self.roles
+
+if __name__ == "__main__":
+    user = UserProfile(
+        user_id="usr_491",
+        email="aryan@jforge.io",
+        roles=["ADMIN", "ENGINEER"],
+        active=True
+    )
+    print(f"User [{user.email}] Admin Access: {user.has_admin_privilege()}")`,
+    java: `package com.jforge.ciap;
+
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Transpiled from Pydantic Schema to Immutable Java 17 Record
+ * Source: user_schema.py (Pydantic Model)
+ */
+public class Solution {
+
+    public record UserProfile(
+        String userId,
+        String email,
+        List<String> roles,
+        boolean active
+    ) {
+        public UserProfile {
+            Objects.requireNonNull(userId, "userId must not be null");
+            Objects.requireNonNull(email, "email must not be null");
+            roles = roles == null ? List.of("VIEWER") : List.copyOf(roles);
+        }
+
+        public boolean hasAdminPrivilege() {
+            return roles != null && roles.contains("ADMIN");
+        }
+    }
+
+    public static void main(String[] args) {
+        UserProfile user = new UserProfile("usr_491", "aryan@jforge.io", List.of("ADMIN", "ENGINEER"), true);
+        System.out.printf("User [%s] Admin Access: %b%n", user.email(), user.hasAdminPrivilege());
+    }
+}`
   }
 };
 

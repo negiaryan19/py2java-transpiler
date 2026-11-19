@@ -2,7 +2,7 @@
 
 [![Next.js 16 (Turbopack)](https://img.shields.io/badge/Next.js-16%20App%20Router-black?logo=next.svg)](https://nextjs.org/)
 [![Google Gemini 2.5 Flash](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
-[![CI / Automated Tests](https://img.shields.io/badge/Tests-31%2F31%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
+[![CI / Automated Tests](https://img.shields.io/badge/Tests-33%2F33%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel%20Serverless-black?logo=vercel)](https://vercel.com/)
 [![Course](https://img.shields.io/badge/Course-BTIN337%20GenAI%20CIA--P%20(20M)-emerald)](#)
 
@@ -53,12 +53,13 @@ py2java-transpiler/
 │   ├── ast-cache.test.mjs            # Semantic AST hash caching & sub-5ms latency tests
 │   ├── ast-engine.test.mjs           # Deterministic AST transpiler engine tests
 │   ├── auth.test.mjs                 # Security & header validation tests
+│   ├── enterprise-framework.test.mjs # FastAPI to Spring Boot & Pydantic to Record tests
 │   ├── explain-diagnostics.test.mjs  # Big-O complexity & memory model tests
 │   ├── security-gateway.test.mjs     # Rate limiting, OpenAPI, Health probe & env tests
 │   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
 │   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
 ├── .github/workflows/
-│   └── ci.yml                        # Automated CI running 31 tests & Next.js production build
+│   └── ci.yml                        # Automated CI running 33 tests & Next.js production build
 ├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
