@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server.js';
 import { validateApiKey } from '../../../../lib/auth.js';
 import { GoogleGenAI } from '@google/genai';
 import { checkRateLimit } from '../../../../lib/rate-limit.js';
+import { metrics } from '../../../../lib/metrics.js';
 
 /**
  * POST /api/v1/explain
  * Compiler Diagnostics & AST Transformation Analysis Endpoint
  */
 export async function POST(request) {
+  metrics.incExplainRequest();
   // 1. Authenticate via x-api-key header (Timing-safe)
   const auth = validateApiKey(request);
   if (!auth.isValid) {

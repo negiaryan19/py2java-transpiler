@@ -5,6 +5,7 @@ import { dispatchWebhook } from '../../../../lib/webhook.js';
 import { checkRateLimit } from '../../../../lib/rate-limit.js';
 import { astCache } from '../../../../lib/cache.js';
 import { healJavaCode } from '../../../../lib/self-healing.js';
+import { metrics } from '../../../../lib/metrics.js';
 
 /**
  * POST /api/v1/convert
@@ -17,12 +18,15 @@ export async function POST(request) {
   // 1. Authenticate via x-api-key header (Constant-time timing-safe)
   const auth = validateApiKey(request);
   if (!auth.isValid) {
+    metrics.incTranspile(401);
     return auth.response;
   }
 
   // 2. Abuse Prevention: Rate Limiting Guard (60 req/min)
   const rateLimit = checkRateLimit(request, { limit: 60 });
   if (!rateLimit.allowed) {
+    metrics.incTranspile(429);
+    metrics.incRateLimitBlock();
     return rateLimit.response;
   }
 
@@ -31,6 +35,7 @@ export async function POST(request) {
   try {
     body = await request.json();
   } catch (err) {
+    metrics.incTranspile(400);
     return NextResponse.json(
       {
         status: 'error',
@@ -58,6 +63,7 @@ export async function POST(request) {
 
   // 4. Validation: python_code is required and must not be empty
   if (!python_code || typeof python_code !== 'string' || !python_code.trim()) {
+    metrics.incTranspile(400);
     return NextResponse.json(
       {
         status: 'error',
@@ -83,6 +89,7 @@ export async function POST(request) {
 
     if (cachedHit) {
       isCacheHit = true;
+      metrics.incCacheHit();
       javaCode = cachedHit.javaCode;
       engine = `${cachedHit.engine} (AST Cache Hit)`;
       summary = `${cachedHit.summary} [⚡ Sub-5ms Cache Hit: 0 Tokens Consumed]`;
@@ -102,6 +109,7 @@ export async function POST(request) {
         },
       };
     } else {
+      metrics.incCacheMiss();
       // Execute live transpilation
       const result = await transpilePythonToJava(python_code, java_version, activeGeminiKey);
 
@@ -112,6 +120,10 @@ export async function POST(request) {
         targetVersion: java_version,
         apiKey: activeGeminiKey,
       });
+
+      if (healingResult.self_healing?.repaired) {
+        metrics.incSelfHealingCorrection(healingResult.self_healing.corrections_applied?.length || 1);
+      }
 
       javaCode = healingResult.javaCode;
       selfHealing = healingResult.self_healing;
@@ -125,6 +137,7 @@ export async function POST(request) {
     }
 
     const executionTimeMs = Math.max(1, Math.round(performance.now() - startTime));
+    metrics.observeDuration(executionTimeMs / 1000);
 
     // 6. Asynchronous Webhook Dispatch
     let webhookReport = null;
@@ -143,6 +156,9 @@ export async function POST(request) {
           },
         },
       });
+      if (webhookReport) {
+        metrics.incWebhookDispatch(webhookReport.ok);
+      }
     }
 
     // 7. Return standard 200 OK Response Contract with Cache & Self-Healing Headers
@@ -160,7 +176,7 @@ export async function POST(request) {
       responseHeaders['X-Cache-Hits'] = String(cachedHit.hits);
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         status: 'success',
         http_code: 200,
@@ -201,7 +217,11 @@ export async function POST(request) {
         headers: responseHeaders,
       }
     );
+    metrics.incTranspile(200);
+    return response;
   } catch (error) {
+    metrics.incTranspile(500);
+    metrics.observeDuration(Math.max(0.001, (performance.now() - startTime) / 1000));
     return NextResponse.json(
       {
         status: 'error',

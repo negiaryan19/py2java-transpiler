@@ -56,10 +56,10 @@ test('Health Route: Returns 200 OK with security diagnostics and route catalog',
   assert.equal(data.status, 'healthy');
   assert.ok(data.uptime_seconds >= 0);
   assert.ok(data.security.timing_safe_mitigation);
-  assert.equal(data.exported_routes.length, 6);
+  assert.equal(data.exported_routes.length, 7);
 });
 
-test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 6 endpoints', async () => {
+test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 7 endpoints', async () => {
   const res = await openapiGet();
   assert.equal(res.status, 200);
   const spec = await res.json();
@@ -68,4 +68,5 @@ test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 6 endpoints',
   assert.ok(spec.paths['/api/v1/explain']);
   assert.ok(spec.paths['/api/v1/webhook-verify']);
   assert.ok(spec.paths['/api/v1/health']);
+  assert.ok(spec.paths['/api/v1/metrics']);
 });

@@ -161,7 +161,7 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
             </p>
           </div>
           <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
-            6 Production Routes
+            7 Production Routes
           </span>
         </div>
         <div className="space-y-2 font-mono text-xs">
@@ -208,6 +208,15 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
               <span className="text-[10px] opacity-70 border border-current px-1 rounded">Public</span>
             </div>
             <span style={{ color: 'var(--text-secondary)' }}>Gateway Health, Memory & Security Diagnostics Probe</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-orange-500/15 text-orange-600">GET</span>
+              <span className="font-bold">/api/v1/metrics</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">Public</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Prometheus / OpenMetrics Production Telemetry Endpoint (Grafana-ready)</span>
           </div>
 
           <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">

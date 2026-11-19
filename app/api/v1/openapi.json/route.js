@@ -139,6 +139,22 @@ export async function GET() {
           },
         },
       },
+      '/api/v1/metrics': {
+        get: {
+          summary: 'Prometheus OpenMetrics Exposition Endpoint',
+          description: 'Exports operational counters, latency histograms, and uptime gauges in Prometheus text exposition format.',
+          responses: {
+            '200': {
+              description: 'OpenMetrics compatible telemetry payload',
+              content: {
+                'text/plain': {
+                  schema: { type: 'string', example: '# HELP jforge_transpile_requests_total ...\n# TYPE ...' },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   };
 

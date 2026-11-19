@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server.js';
 import { getSecurityAudit } from '../../../../lib/env.js';
 import { astCache } from '../../../../lib/cache.js';
+import { metrics } from '../../../../lib/metrics.js';
 
 const processStartTime = Date.now();
 
@@ -13,6 +14,7 @@ export async function GET() {
   const mem = process.memoryUsage();
   const security = getSecurityAudit();
   const cacheStats = astCache.getStats();
+  const metricsSnapshot = metrics.getSnapshot();
 
   return NextResponse.json(
     {
@@ -42,6 +44,11 @@ export async function GET() {
           'markdown_fence_sanitization',
         ],
       },
+      observability: {
+        metrics_endpoint: '/api/v1/metrics',
+        format: 'Prometheus OpenMetrics text/plain (v0.0.4)',
+        snapshot: metricsSnapshot,
+      },
       security: {
         authentication: 'x-api-key / Bearer (Constant-Time Timing-Safe)',
         timing_safe_mitigation: true,
@@ -61,6 +68,7 @@ export async function GET() {
         { method: 'POST', path: '/api/v1/webhook-verify', auth_required: false, description: 'HMAC-SHA256 Signature Validator' },
         { method: 'POST', path: '/api/v1/webhook-demo', auth_required: false, description: 'Local Mock Webhook Receiver' },
         { method: 'GET', path: '/api/v1/health', auth_required: false, description: 'Health & Security Probe' },
+        { method: 'GET', path: '/api/v1/metrics', auth_required: false, description: 'Prometheus Metrics Exposition' },
         { method: 'GET', path: '/api/v1/openapi.json', auth_required: false, description: 'OpenAPI 3.1 Specification' },
       ],
     },

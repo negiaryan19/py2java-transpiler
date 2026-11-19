@@ -2,7 +2,7 @@
 
 [![Next.js 16 (Turbopack)](https://img.shields.io/badge/Next.js-16%20App%20Router-black?logo=next.svg)](https://nextjs.org/)
 [![Google Gemini 2.5 Flash](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
-[![CI / Automated Tests](https://img.shields.io/badge/Tests-39%2F39%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
+[![CI / Automated Tests](https://img.shields.io/badge/Tests-44%2F44%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel%20Serverless-black?logo=vercel)](https://vercel.com/)
 [![Course](https://img.shields.io/badge/Course-BTIN337%20GenAI%20CIA--P%20(20M)-emerald)](#)
 
@@ -25,6 +25,8 @@ py2java-transpiler/
 │   │       │   └── route.js          # Compiler Diagnostics & Big-O Complexity Analysis
 │   │       ├── health/
 │   │       │   └── route.js          # Gateway Health, Security & System Diagnostics Probe
+│   │       ├── metrics/
+│   │       │   └── route.js          # Prometheus OpenMetrics Exposition Endpoint (Grafana-ready)
 │   │       ├── openapi.json/
 │   │       │   └── route.js          # Full OpenAPI 3.1.0 JSON Schema Specification
 │   │       ├── webhook-verify/
@@ -46,6 +48,7 @@ py2java-transpiler/
 │   ├── cache.js                      # Semantic AST hash cache (SHA-256 canonical fingerprint)
 │   ├── env.js                        # Environment validator & secret masking guard
 │   ├── gemini.js                     # Direct @google/genai client with deterministic prompt
+│   ├── metrics.js                    # Prometheus metrics collector (counters, histograms, gauges)
 │   ├── rate-limit.js                 # Sliding-window rate-limiting abuse protection
 │   ├── self-healing.js               # Autonomous compiler verification & self-correction loop
 │   └── webhook.js                    # Robust webhook dispatcher with HMAC signature
@@ -56,12 +59,13 @@ py2java-transpiler/
 │   ├── auth.test.mjs                 # Security & header validation tests
 │   ├── enterprise-framework.test.mjs # FastAPI to Spring Boot & Pydantic to Record tests
 │   ├── explain-diagnostics.test.mjs  # Big-O complexity & memory model tests
+│   ├── metrics.test.mjs              # Prometheus metrics format & collector tests
 │   ├── security-gateway.test.mjs     # Rate limiting, OpenAPI, Health probe & env tests
 │   ├── self-healing.test.mjs         # Static AST analyzer & self-correction pipeline tests
 │   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
 │   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
 ├── .github/workflows/
-│   └── ci.yml                        # Automated CI running 39 tests & Next.js production build
+│   └── ci.yml                        # Automated CI running 44 tests & Next.js production build
 ├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
@@ -223,6 +227,11 @@ curl -X POST http://localhost:3000/api/v1/webhook-verify \
   }'
 ```
 
+### Scenario 6: Prometheus Metrics Exposition (HTTP 200)
+```bash
+curl -X GET http://localhost:3000/api/v1/metrics
+```
+
 ---
 
 ## 6. Enterprise Features (Resume Highlights)
@@ -244,9 +253,16 @@ curl -X POST http://localhost:3000/api/v1/webhook-verify \
 - **Pass 2 (Targeted Gemini Reflection Loop)**: If deep structural defects persist, invokes Gemini with deterministic temperature 0.0 with targeted compiler feedback to auto-repair the code before client delivery.
 - **Telemetry**: Exposes `X-Self-Healing-Passes`, `X-Self-Healing-Quality`, and detailed diagnostic metrics (`brace_balance`, `import_resolution`, `quality_score`).
 
+### Feature 4: Prometheus Production Metrics & Observability Layer
+- **OpenMetrics Exposition**: Implements `GET /api/v1/metrics` conforming to Prometheus exposition format (`text/plain; version=0.0.4; charset=utf-8`).
+- **Traffic & Status Counters**: Tracks `jforge_transpile_requests_total{status="200|400|401|429|500"}` across all API outcomes.
+- **Performance Histogram**: High-precision request duration tracking (`jforge_request_duration_seconds`) across 11 buckets (from 5ms to 10s) with cumulative sum and count.
+- **Cache & Resilience Telemetry**: Live metrics for `jforge_cache_hits_total`, `jforge_cache_misses_total`, `jforge_self_healing_corrections_total`, and `jforge_rate_limit_blocks_total`.
+- **SRE & Grafana Ready**: Zero-overhead collector preserving metrics across serverless hot reloads.
+
 ---
 
-## 7. Automated Unit Test Suite (39 Tests)
+## 7. Automated Unit Test Suite (44 Tests)
 
 Execute the zero-dependency test suite via Node.js native test runner:
 ```bash
@@ -275,12 +291,17 @@ Outputs:
 ✔ Diagnostics Route: Returns 401 when x-api-key is missing
 ✔ Diagnostics Route: Returns 400 when python_code is empty
 ✔ Diagnostics Route: Returns 200 with Big-O complexity & memory model analysis
+✔ Prometheus Metrics: Collector records counter increments and exposes OpenMetrics format
+✔ Prometheus Metrics: Histogram observes request duration across buckets
+✔ Prometheus Metrics: getSnapshot returns operational JSON summary for health check
+✔ Prometheus Route: GET /api/v1/metrics returns text/plain v0.0.4 with 200 OK
+✔ Prometheus Route: GET /api/v1/health exposes observability section and route catalog entry
 ✔ Security Guard: maskSecret correctly obscures credentials
 ✔ Security Guard: generateSecureSecret generates high-entropy random keys
 ✔ Security Guard: getSecurityAudit reports timing-safe and active protections
 ✔ Rate Limiter: Allows requests under limit and blocks on abuse (429)
 ✔ Health Route: Returns 200 OK with security diagnostics and route catalog
-✔ OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 6 endpoints
+✔ OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 7 endpoints
 ✔ Self-Healing: Strips comments and string literals without affecting lexical tokens
 ✔ Self-Healing: Static analyzer detects clean code as 100% valid with score 100
 ✔ Self-Healing: Static analyzer detects unbalanced braces, missing package, and missing imports
@@ -294,7 +315,7 @@ Outputs:
 ✔ Webhook Dispatcher: Computes valid HMAC SHA-256 signature
 ✔ Webhook Dispatcher: Fails gracefully without throwing on invalid URL
 
-ℹ tests 39 | pass 39 | fail 0 | duration_ms ~175ms
+ℹ tests 44 | pass 44 | fail 0 | duration_ms ~190ms
 ```
 
 ---
