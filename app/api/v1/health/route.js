@@ -31,6 +31,17 @@ export async function GET() {
         status: security.gemini_key_configured ? 'CONNECTED_AND_ACTIVE' : 'FALLBACK_ACTIVE',
       },
       ast_semantic_cache: cacheStats,
+      self_healing_pipeline: {
+        status: 'active',
+        strategy: 'deterministic_ast_heuristics + gemini_reflection_loop',
+        verification_checks: [
+          'lexical_delimiter_balance',
+          'package_encapsulation',
+          'class_structure_invariants',
+          'import_resolution_audit',
+          'markdown_fence_sanitization',
+        ],
+      },
       security: {
         authentication: 'x-api-key / Bearer (Constant-Time Timing-Safe)',
         timing_safe_mitigation: true,

@@ -60,13 +60,21 @@ export async function GET() {
                     python_code: { type: 'string', example: 'def add(a: int, b: int) -> int:\n    return a + b' },
                     java_version: { type: 'string', default: '17', example: '17' },
                     webhook_url: { type: 'string', format: 'uri', example: 'https://webhook.site/demo-url' },
+                    bypass_cache: { type: 'boolean', default: false, description: 'Bypass AST cache and force live transpilation' },
                   },
                 },
               },
             },
           },
           responses: {
-            '200': { description: 'Code successfully transpiled' },
+            '200': {
+              description: 'Code successfully transpiled with AST caching and self-healing verification',
+              headers: {
+                'X-Cache': { schema: { type: 'string', example: 'HIT' } },
+                'X-Self-Healing-Passes': { schema: { type: 'string', example: '0' } },
+                'X-Self-Healing-Quality': { schema: { type: 'string', example: '100%' } },
+              },
+            },
             '400': { description: 'Malformed JSON or missing python_code' },
             '401': { description: 'Missing or invalid authentication credentials' },
             '429': { description: 'Rate limit exceeded (60 req/min)' },

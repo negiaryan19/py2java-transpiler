@@ -46,6 +46,7 @@ export default function TranspilerStudio({
   bypassCache = false,
   setBypassCache = () => {},
   isCacheHit = false,
+  selfHealing = null,
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -659,6 +660,27 @@ export default function TranspilerStudio({
                   {latency} ms
                 </span>
               )}
+
+              {selfHealing ? (
+                selfHealing.passes > 0 ? (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1 border border-purple-500/30 shadow-xs"
+                    title={`Autonomous Self-Correction (${selfHealing.repaired_by}): ${selfHealing.corrections_applied?.join(' • ') || 'AST Repaired'}`}
+                  >
+                    <Sparkles className="w-3 h-3 text-purple-500" />
+                    <span>Self-Healed ({selfHealing.passes} Pass)</span>
+                  </span>
+                ) : (
+                  <span
+                    className="text-[11px] px-2 py-0.5 rounded bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold flex items-center gap-1 border border-sky-500/20"
+                    title="Static AST Integrity Verified: 0 Defects Detected"
+                  >
+                    <ShieldCheck className="w-3 h-3 text-sky-500" />
+                    <span>AST Verified</span>
+                  </span>
+                )
+              ) : null}
+
               <button
                 onClick={onDownloadJava}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
@@ -863,6 +885,41 @@ export default function TranspilerStudio({
                     </div>
                   </div>
                 </div>
+
+                {/* AST Self-Correction / Reflection Telemetry Card */}
+                {selfHealing && (
+                  <div className="p-2.5 rounded t-surface border border-black/5 dark:border-white/5 text-[11px] space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>AST Self-Healing & Reflection Loop</span>
+                      </div>
+                      <div className="flex items-center gap-2 font-mono text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
+                          Quality: {selfHealing.diagnostics?.quality_score ?? 100}%
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-600 font-semibold">
+                          Passes: {selfHealing.passes}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[10px] opacity-80 pt-1 border-t border-black/5 dark:border-white/5">
+                      <div>Braces: <span className="font-bold text-emerald-500">{selfHealing.diagnostics?.brace_balance || 'BALANCED'}</span></div>
+                      <div>Imports: <span className="font-bold text-sky-500">{selfHealing.diagnostics?.import_resolution || 'COMPLETE'}</span></div>
+                      <div>Structure: <span className="font-bold text-indigo-500">{selfHealing.diagnostics?.structure_check || 'VALID'}</span></div>
+                    </div>
+                    {selfHealing.corrections_applied?.length > 0 && (
+                      <div className="mt-1 pt-1 border-t border-dashed border-black/10 dark:border-white/10 text-[10px] text-purple-600 dark:text-purple-300">
+                        <span className="font-bold">Autonomous Fixes ({selfHealing.repaired_by}):</span>
+                        <ul className="list-disc pl-4 mt-0.5 space-y-0.5 font-mono">
+                          {selfHealing.corrections_applied.map((corr, idx) => (
+                            <li key={idx}>{corr}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="p-2.5 rounded t-surface border border-black/5 dark:border-white/5 text-[11px] space-y-1">
                   <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">

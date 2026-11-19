@@ -86,6 +86,14 @@ export default function ApiPlayground({
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Scenario: ⚡ AST Cache Hit</span>
           </button>
+          <button
+            onClick={() => onLoadScenario('selfhealing')}
+            className="t-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer text-purple-600 dark:text-purple-400 font-bold"
+            title="Test Autonomous Compiler Verification & Self-Correction Pipeline"
+          >
+            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+            <span>Scenario: 🛡️ Self-Healing</span>
+          </button>
         </div>
       </div>
 
