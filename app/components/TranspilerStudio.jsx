@@ -43,6 +43,9 @@ export default function TranspilerStudio({
   copiedId,
   executionStdout = '',
   onNavigateToWebhooks,
+  bypassCache = false,
+  setBypassCache = () => {},
+  isCacheHit = false,
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -431,6 +434,19 @@ export default function TranspilerStudio({
         {/* Target Version & Run Action */}
         <div className="flex items-center gap-2.5">
           <button
+            onClick={() => setBypassCache(!bypassCache)}
+            className={`px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer rounded transition ${
+              bypassCache
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/40 font-semibold'
+                : 't-btn-secondary'
+            }`}
+            title={bypassCache ? 'AST Cache Bypassed (Forces Live LLM Synthesis)' : 'Semantic AST Hash Cache Active (Sub-5ms response)'}
+          >
+            <Zap className={`w-3.5 h-3.5 ${bypassCache ? 'text-amber-500' : 'text-emerald-500'}`} />
+            <span className="hidden sm:inline">{bypassCache ? 'Bypass Cache: ON' : 'Cache: Active'}</span>
+          </button>
+
+          <button
             onClick={() => setShortcutsModalOpen(true)}
             className="t-btn-secondary px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
             title="IDE Shortcuts & AST Navigation"
@@ -630,9 +646,19 @@ export default function TranspilerStudio({
             </div>
 
             <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
-                {latency} ms
-              </span>
+              {isCacheHit ? (
+                <span
+                  className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 border border-emerald-500/30 shadow-xs"
+                  title="Semantic AST Cache Hit: 0 Tokens Consumed"
+                >
+                  <Zap className="w-3 h-3 text-emerald-500 fill-emerald-500" />
+                  <span>{latency} ms (Cache Hit)</span>
+                </span>
+              ) : (
+                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
+                  {latency} ms
+                </span>
+              )}
               <button
                 onClick={onDownloadJava}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"

@@ -78,6 +78,14 @@ export default function ApiPlayground({
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
             <span>Scenario: 400 Empty Code</span>
           </button>
+          <button
+            onClick={() => onLoadScenario('cachehit')}
+            className="t-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer text-emerald-600 dark:text-emerald-400 font-bold"
+            title="Execute identical request to test Sub-5ms Semantic AST Cache Hit"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Scenario: ⚡ AST Cache Hit</span>
+          </button>
         </div>
       </div>
 

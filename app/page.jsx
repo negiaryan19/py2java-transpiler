@@ -435,6 +435,8 @@ export default function JForgeOrchestrator() {
   const [isTranspiling, setIsTranspiling] = useState(false);
   const [latency, setLatency] = useState(42);
   const [compilerSummary, setCompilerSummary] = useState(PRESETS.bank.summary);
+  const [bypassCache, setBypassCache] = useState(false);
+  const [isCacheHit, setIsCacheHit] = useState(false);
 
   // Engine Modal & Key Configuration
   const [engineModalOpen, setEngineModalOpen] = useState(false);
@@ -630,6 +632,7 @@ export default function JForgeOrchestrator() {
             java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '17',
             webhook_url: webhookEndpointUrl,
             gemini_api_key: liveGeminiKey || undefined,
+            bypass_cache: bypassCache,
           }),
         });
 
@@ -640,6 +643,8 @@ export default function JForgeOrchestrator() {
             javaResult = returnedJava;
             summaryNote = resData?.summary || `Successfully synthesized via POST /api/v1/convert (${javaTargetVersion}).`;
             remoteSuccess = true;
+            const hit = resData?.cache?.hit || false;
+            setIsCacheHit(hit);
             if (resData?.engine) {
               setActiveEngine(resData.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
             }
@@ -794,6 +799,22 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
         )
       );
       showToast('Loaded Scenario: 400 Empty Code');
+    } else if (scenario === 'cachehit') {
+      setPgApiKey(configuredGatewayKey);
+      setPgRequestBody(
+        JSON.stringify(
+          {
+            source_language: "python",
+            target_language: "java",
+            java_version: "17",
+            python_code: "def fibonacci(n: int) -> int:\n    return n if n <= 1 else fibonacci(n - 1) + fibonacci(n - 2)\n\nprint(fibonacci(10))",
+            bypass_cache: false,
+          },
+          null,
+          2
+        )
+      );
+      showToast('Loaded Scenario: Semantic AST Cache Hit (Sub-5ms)');
     }
   };
 
@@ -1018,6 +1039,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               copyToClipboard={copyToClipboard}
               copiedId={copiedId}
               onNavigateToWebhooks={() => setActiveView('webhooks')}
+              bypassCache={bypassCache}
+              setBypassCache={setBypassCache}
+              isCacheHit={isCacheHit}
             />
           )}
 

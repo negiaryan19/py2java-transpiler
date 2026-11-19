@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server.js';
 import { getSecurityAudit } from '../../../../lib/env.js';
+import { astCache } from '../../../../lib/cache.js';
 
 const processStartTime = Date.now();
 
@@ -11,6 +12,7 @@ export async function GET() {
   const uptimeSeconds = Math.floor((Date.now() - processStartTime) / 1000);
   const mem = process.memoryUsage();
   const security = getSecurityAudit();
+  const cacheStats = astCache.getStats();
 
   return NextResponse.json(
     {
@@ -28,6 +30,7 @@ export async function GET() {
         fallback: 'Deterministic AST Synthesizer',
         status: security.gemini_key_configured ? 'CONNECTED_AND_ACTIVE' : 'FALLBACK_ACTIVE',
       },
+      ast_semantic_cache: cacheStats,
       security: {
         authentication: 'x-api-key / Bearer (Constant-Time Timing-Safe)',
         timing_safe_mitigation: true,
