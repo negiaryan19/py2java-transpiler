@@ -155,6 +155,33 @@ export async function GET() {
           },
         },
       },
+      '/api/v1/ast-diff': {
+        post: {
+          summary: 'Cross-Language AST Alignment & Syntax Mapping Inspector',
+          description: 'Parses Python 3.11 and Java 17 ASTs using tree-sitter and returns aligned semantic nodes with type explanations.',
+          security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code', 'java_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    java_code: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'AST alignment pairs and normalized semantic nodes computed' },
+            '400': { description: 'Missing required code inputs' },
+            '401': { description: 'Unauthorized' },
+          },
+        },
+      },
     },
   };
 

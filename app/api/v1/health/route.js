@@ -65,6 +65,7 @@ export async function GET() {
       exported_routes: [
         { method: 'POST', path: '/api/v1/convert', auth_required: true, description: 'Core Transpiler + Webhook' },
         { method: 'POST', path: '/api/v1/explain', auth_required: true, description: 'Big-O Diagnostics & Memory Model' },
+        { method: 'POST', path: '/api/v1/ast-diff', auth_required: true, description: 'Cross-Language AST Alignment & Type Inspector' },
         { method: 'POST', path: '/api/v1/webhook-verify', auth_required: false, description: 'HMAC-SHA256 Signature Validator' },
         { method: 'POST', path: '/api/v1/webhook-demo', auth_required: false, description: 'Local Mock Webhook Receiver' },
         { method: 'GET', path: '/api/v1/health', auth_required: false, description: 'Health & Security Probe' },

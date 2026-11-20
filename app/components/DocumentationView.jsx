@@ -161,7 +161,7 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
             </p>
           </div>
           <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
-            7 Production Routes
+            8 Production Routes
           </span>
         </div>
         <div className="space-y-2 font-mono text-xs">
@@ -181,6 +181,15 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
               <span className="text-[10px] opacity-70 border border-current px-1 rounded">x-api-key</span>
             </div>
             <span style={{ color: 'var(--text-secondary)' }}>Compiler Diagnostics, Big-O Time/Space Complexity & Type Safety</span>
+          </div>
+
+          <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded font-bold bg-sky-500/15 text-sky-600">POST</span>
+              <span className="font-bold">/api/v1/ast-diff</span>
+              <span className="text-[10px] opacity-70 border border-current px-1 rounded">x-api-key</span>
+            </div>
+            <span style={{ color: 'var(--text-secondary)' }}>Cross-Language AST Alignment & Type Mapping Inspector</span>
           </div>
 
           <div className="p-2.5 t-subtle flex flex-wrap items-center justify-between gap-2">

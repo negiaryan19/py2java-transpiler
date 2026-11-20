@@ -2,7 +2,7 @@
 
 [![Next.js 16 (Turbopack)](https://img.shields.io/badge/Next.js-16%20App%20Router-black?logo=next.svg)](https://nextjs.org/)
 [![Google Gemini 2.5 Flash](https://img.shields.io/badge/Google-Gemini%202.5%20Flash-blue?logo=google)](https://aistudio.google.com/)
-[![CI / Automated Tests](https://img.shields.io/badge/Tests-44%2F44%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
+[![CI / Automated Tests](https://img.shields.io/badge/Tests-48%2F48%20Passing-emerald?logo=githubactions)](https://github.com/negiaryan19/py2java-transpiler/actions)
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel%20Serverless-black?logo=vercel)](https://vercel.com/)
 [![Course](https://img.shields.io/badge/Course-BTIN337%20GenAI%20CIA--P%20(20M)-emerald)](#)
 
@@ -19,6 +19,8 @@ py2java-transpiler/
 ├── app/
 │   ├── api/
 │   │   └── v1/
+│   │       ├── ast-diff/
+│   │       │   └── route.js          # Cross-Language AST Diff & Syntax Mapping Inspector
 │   │       ├── convert/
 │   │       │   └── route.js          # Core Transpiler Endpoint (Auth + Gemini + Webhook)
 │   │       ├── explain/
@@ -33,7 +35,12 @@ py2java-transpiler/
 │   │       │   └── route.js          # Constant-time HMAC-SHA256 Signature Validator
 │   │       └── webhook-demo/
 │   │           └── route.js          # Mock Webhook Receiver for live evaluation
+│   ├── ast-diff/
+│   │   └── page.jsx                  # Interactive AST Differential Inspector Dual-Editor View
 │   ├── components/
+│   │   ├── ASTDiffViewer.jsx         # Dual Monaco editors with synchronized hover mapping
+│   │   ├── ExplanationDrawer.jsx     # Slide-in type, memory & safety inspector
+│   │   ├── ASTLegend.jsx             # Visual alignment confidence status bar
 │   │   ├── Navigation.jsx            # App view switcher & live theme toggle
 │   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java) + Maven pom.xml
 │   │   ├── ApiPlayground.jsx         # Interactive REST client for testing POST /api/v1/convert
@@ -44,6 +51,8 @@ py2java-transpiler/
 │   ├── layout.jsx                    # Root layout with metadata and fonts
 │   └── page.jsx                      # Main client page orchestrating the 4 views
 ├── lib/
+│   ├── ast-aligner.js                # Cross-language AST semantic node alignment engine
+│   ├── ast-parser.js                 # Tree-sitter AST parser for Python 3.11 & Java 17 LTS
 │   ├── auth.js                       # Constant-time timing-safe API key validator
 │   ├── cache.js                      # Semantic AST hash cache (SHA-256 canonical fingerprint)
 │   ├── env.js                        # Environment validator & secret masking guard
@@ -51,9 +60,11 @@ py2java-transpiler/
 │   ├── metrics.js                    # Prometheus metrics collector (counters, histograms, gauges)
 │   ├── rate-limit.js                 # Sliding-window rate-limiting abuse protection
 │   ├── self-healing.js               # Autonomous compiler verification & self-correction loop
+│   ├── type-mapping.js               # 25+ Python-to-Java type system & memory mapping rules
 │   └── webhook.js                    # Robust webhook dispatcher with HMAC signature
 ├── tests/
 │   ├── api-route.test.mjs            # End-to-end /api/v1/convert contract tests
+│   ├── ast-aligner.test.mjs          # Cross-language AST alignment & confidence level tests
 │   ├── ast-cache.test.mjs            # Semantic AST hash caching & sub-5ms latency tests
 │   ├── ast-engine.test.mjs           # Deterministic AST transpiler engine tests
 │   ├── auth.test.mjs                 # Security & header validation tests
@@ -64,8 +75,10 @@ py2java-transpiler/
 │   ├── self-healing.test.mjs         # Static AST analyzer & self-correction pipeline tests
 │   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
 │   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
+├── __tests__/
+│   └── ast-aligner.test.js           # Jest-compatible test suite for AST aligner
 ├── .github/workflows/
-│   └── ci.yml                        # Automated CI running 44 tests & Next.js production build
+│   └── ci.yml                        # Automated CI running 48 tests & Next.js production build
 ├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
@@ -260,9 +273,15 @@ curl -X GET http://localhost:3000/api/v1/metrics
 - **Cache & Resilience Telemetry**: Live metrics for `jforge_cache_hits_total`, `jforge_cache_misses_total`, `jforge_self_healing_corrections_total`, and `jforge_rate_limit_blocks_total`.
 - **SRE & Grafana Ready**: Zero-overhead collector preserving metrics across serverless hot reloads.
 
+### Feature 5: Cross-Language AST Diff & Syntax Mapping Inspector
+- **Tree-Sitter Grammars**: Parses raw Python 3.11 and Java 17 LTS ASTs using native `tree-sitter-python` and `tree-sitter-java`.
+- **25+ Enterprise Type Mappings**: Comprehensive dictionary mapping collections (`dict[str, Any]` ➔ `Map<String, Object>`), Pydantic models to Java records, and FastAPI annotations to Spring Boot 3.
+- **Confidence Scoring & Visual Indicators**: Classifies alignments as `🟢 Exact Conversion` (green), `🟣 Inferred Type` (purple), and `🟡 Self-Healed Syntax` (amber).
+- **Dual Monaco Editor Studio**: Dedicated `/ast-diff` view with synchronized hover providers and slide-over architectural explanation drawer.
+
 ---
 
-## 7. Automated Unit Test Suite (44 Tests)
+## 7. Automated Unit Test Suite (48 Tests)
 
 Execute the zero-dependency test suite via Node.js native test runner:
 ```bash
@@ -273,6 +292,10 @@ Outputs:
 ✔ API Route: Returns 401 when x-api-key is missing
 ✔ API Route: Returns 400 when python_code is empty
 ✔ API Route: Returns 200 OK with valid contract on valid Python input
+✔ AST Aligner: All 25+ TYPE_MAP entries contain valid { java, reason, memory, safety }
+✔ AST Aligner: Exact TYPE_MAP matches produce green alignment pairs
+✔ AST Aligner: Unmatched nodes produce no pair (not a broken pair)
+✔ AST Aligner: Inferred and self-healed constructs produce purple and amber colors
 ✔ AST Cache: Canonicalize strips comments and trailing spaces while preserving semantics
 ✔ AST Cache: Computes identical SHA-256 key for semantically identical Python code
 ✔ AST Cache: Cache Miss returns null and records metric; Cache Hit returns payload in sub-5ms
@@ -301,7 +324,7 @@ Outputs:
 ✔ Security Guard: getSecurityAudit reports timing-safe and active protections
 ✔ Rate Limiter: Allows requests under limit and blocks on abuse (429)
 ✔ Health Route: Returns 200 OK with security diagnostics and route catalog
-✔ OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 7 endpoints
+✔ OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 8 endpoints
 ✔ Self-Healing: Strips comments and string literals without affecting lexical tokens
 ✔ Self-Healing: Static analyzer detects clean code as 100% valid with score 100
 ✔ Self-Healing: Static analyzer detects unbalanced braces, missing package, and missing imports
@@ -315,7 +338,7 @@ Outputs:
 ✔ Webhook Dispatcher: Computes valid HMAC SHA-256 signature
 ✔ Webhook Dispatcher: Fails gracefully without throwing on invalid URL
 
-ℹ tests 44 | pass 44 | fail 0 | duration_ms ~190ms
+ℹ tests 48 | pass 48 | fail 0 | duration_ms ~220ms
 ```
 
 ---

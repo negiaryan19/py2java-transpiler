@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import {
   Code2,
   Terminal,
@@ -11,6 +12,7 @@ import {
   Sun,
   Flame,
   Moon,
+  Sparkles,
 } from 'lucide-react';
 
 export default function Navigation({
@@ -210,6 +212,19 @@ export function SidebarRail({
             </span>
             <span className="text-[10px] font-mono opacity-60">20M</span>
           </button>
+
+          <Link
+            href="/ast-diff"
+            className="nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer border border-sky-500/20 bg-sky-500/5 hover:bg-sky-500/10 rounded transition-all"
+          >
+            <span className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 shrink-0 text-sky-400" />
+              <span className="font-semibold text-sky-300">AST Diff Inspector</span>
+            </span>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold">
+              DIFF
+            </span>
+          </Link>
         </nav>
 
         {/* Active API Telemetry Card */}
