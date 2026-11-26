@@ -78,7 +78,7 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
               <span className="text-emerald-600">READY</span>
             </div>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Direct <code className="font-mono">gemini-1.5-flash</code> SDK calls via <code className="font-mono">@google/genai</code> + deterministic fallback.
+              Direct <code className="font-mono">gemini-2.5-flash</code> SDK calls via <code className="font-mono">@google/genai</code> + deterministic fallback.
             </p>
           </div>
 
@@ -142,6 +142,10 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
             <div className="p-2.5 t-subtle flex items-center justify-between">
               <span className="font-bold text-rose-600">401 Unauthorized</span>
               <span style={{ color: 'var(--text-secondary)' }}>Missing or invalid `x-api-key` authentication header</span>
+            </div>
+            <div className="p-2.5 t-subtle flex items-center justify-between">
+              <span className="font-bold text-orange-600">429 Too Many Requests</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Sliding-window rate limit (60 req/min) exceeded</span>
             </div>
             <div className="p-2.5 t-subtle flex items-center justify-between">
               <span className="font-bold text-purple-600">500 Internal Error</span>
