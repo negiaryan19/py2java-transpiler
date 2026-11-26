@@ -47,6 +47,7 @@ export default function TranspilerStudio({
   setBypassCache = () => {},
   isCacheHit = false,
   selfHealing = null,
+  gatewayApiKey = process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026',
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -135,7 +136,7 @@ export default function TranspilerStudio({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': 'ciap-secret-key-2026',
+          'x-api-key': gatewayApiKey,
         },
         body: JSON.stringify({
           python_code: pythonCode,
