@@ -141,9 +141,15 @@ export async function POST(request) {
 
     // 6. Asynchronous Webhook Dispatch
     let webhookReport = null;
-    if (webhook_url && typeof webhook_url === 'string') {
+    const rawWebhookUrl = typeof webhook_url === 'string' ? webhook_url.trim() : '';
+    if (rawWebhookUrl) {
+      const resolvedWebhookUrl =
+        rawWebhookUrl.startsWith('/') && request?.url
+          ? new URL(rawWebhookUrl, request.url).toString()
+          : rawWebhookUrl;
+
       webhookReport = await dispatchWebhook({
-        webhookUrl: webhook_url,
+        webhookUrl: resolvedWebhookUrl,
         payload: {
           data: {
             source_language: 'python',
@@ -205,6 +211,10 @@ export async function POST(request) {
               delivery_id: webhookReport.deliveryId,
               status_code: webhookReport.statusCode,
               ok: webhookReport.ok,
+              signature: webhookReport.signature,
+              headers: webhookReport.headers,
+              payload: webhookReport.payload,
+              ...(webhookReport.error ? { error: webhookReport.error } : {}),
             }
           : {
               dispatched: false,
