@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Send,
   RefreshCw,
@@ -33,6 +33,10 @@ export default function WebhookInspector({
   const [verificationResult, setVerificationResult] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  useEffect(() => {
+    setVerificationResult(null);
+  }, [selectedWebhook?.id]);
+
   const handleVerify = async (tamper = false) => {
     if (!selectedWebhook) return;
     setIsVerifying(true);
@@ -41,7 +45,10 @@ export default function WebhookInspector({
       if (tamper) {
         payloadToTest = { ...payloadToTest, _unauthorized_injection: 'attack_vector_detected' };
       }
-      const rawSig = selectedWebhook.headers?.['X-Signature-SHA256'] || '';
+      const rawSig =
+        selectedWebhook.headers?.['X-Signature-SHA256'] ||
+        selectedWebhook.headers?.['X-JForge-Signature'] ||
+        '';
       const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
 
       const res = await fetch('/api/v1/webhook-verify', {
@@ -185,7 +192,13 @@ export default function WebhookInspector({
                       }`}
                     >
                       <td className="py-2.5 px-3">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500/15 text-emerald-600">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                            item.statusCode >= 200 && item.statusCode < 300
+                              ? 'bg-emerald-500/15 text-emerald-600'
+                              : 'bg-rose-500/15 text-rose-600'
+                          }`}
+                        >
                           HTTP {item.statusCode}
                         </span>
                       </td>
