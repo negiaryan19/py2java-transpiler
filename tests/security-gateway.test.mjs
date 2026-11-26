@@ -68,6 +68,9 @@ test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 8 endpoints',
   assert.ok(spec.paths['/api/v1/explain']);
   assert.ok(spec.paths['/api/v1/ast-diff']);
   assert.ok(spec.paths['/api/v1/webhook-verify']);
+  assert.ok(spec.paths['/api/v1/webhook-demo']);
   assert.ok(spec.paths['/api/v1/health']);
   assert.ok(spec.paths['/api/v1/metrics']);
+  assert.ok(spec.paths['/api/v1/openapi.json']);
+  assert.equal(Object.keys(spec.paths).length, 8);
 });
