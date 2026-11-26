@@ -552,6 +552,25 @@ function computeProgramStdout(pyCode) {
     : 'Execution verified successfully with exit code 0.';
 }
 
+async function computeClientHmacHex(secret, payloadObj) {
+  const payloadStr = typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj);
+  if (typeof window !== 'undefined' && window.crypto?.subtle) {
+    const enc = new TextEncoder();
+    const key = await window.crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const sigBuf = await window.crypto.subtle.sign('HMAC', key, enc.encode(payloadStr));
+    return Array.from(new Uint8Array(sigBuf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  return '';
+}
+
 export default function JForgeOrchestrator() {
   // Theme state: 'cupertino' | 'brutalist' | 'carbon'
   const [theme, setTheme] = useState('cupertino');
@@ -591,11 +610,17 @@ export default function JForgeOrchestrator() {
   const [liveGeminiKey, setLiveGeminiKey] = useState('');
   const [activeEngine, setActiveEngine] = useState('Gemini Live');
   const [tempGeminiKey, setTempGeminiKey] = useState('');
-  const [configuredGatewayKey, setConfiguredGatewayKey] = useState('ciap-secret-key-2026');
-  const [tempGatewayKey, setTempGatewayKey] = useState('ciap-secret-key-2026');
+  const [configuredGatewayKey, setConfiguredGatewayKey] = useState(
+    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
+  );
+  const [tempGatewayKey, setTempGatewayKey] = useState(
+    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
+  );
 
   // Playground state
-  const [pgApiKey, setPgApiKey] = useState('ciap-secret-key-2026');
+  const [pgApiKey, setPgApiKey] = useState(
+    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
+  );
   const [pgRequestBody, setPgRequestBody] = useState(
     JSON.stringify(
       {
@@ -603,7 +628,7 @@ export default function JForgeOrchestrator() {
         target_language: "java",
         java_version: "17",
         python_code: "def square(x: int) -> int:\n    return x * x\n\nprint(square(9))",
-        webhook_url: "https://webhook.site/ciap-btin337-receiver",
+        webhook_url: "/api/v1/webhook-demo",
       },
       null,
       2
@@ -631,7 +656,7 @@ export default function JForgeOrchestrator() {
         },
         webhook_delivery: {
           dispatched: true,
-          target_url: "https://webhook.site/ciap-btin337-receiver",
+          target_url: "/api/v1/webhook-demo",
           status_code: 200,
         },
       },
@@ -642,7 +667,7 @@ export default function JForgeOrchestrator() {
   const [isPgLoading, setIsPgLoading] = useState(false);
 
   // Webhook state
-  const [webhookEndpointUrl, setWebhookEndpointUrl] = useState('https://webhook.site/ciap-btin337-receiver');
+  const [webhookEndpointUrl, setWebhookEndpointUrl] = useState('/api/v1/webhook-demo');
   const [webhookSigningSecret, setWebhookSigningSecret] = useState('whsec_btin337_ciap_99481a');
   const [webhookEventTopic, setWebhookEventTopic] = useState('code.conversion.completed');
   const [webhookDeliveries, setWebhookDeliveries] = useState([
@@ -651,13 +676,14 @@ export default function JForgeOrchestrator() {
       statusCode: 200,
       eventType: 'code.conversion.completed',
       timestamp: '2026-11-15T10:30:00.000Z',
-      targetUrl: 'https://webhook.site/ciap-btin337-receiver',
+      targetUrl: '/api/v1/webhook-demo',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'JForge-Webhook-Dispatcher/1.0 (BTIN337-CIAP)',
         'X-Event-Type': 'code.conversion.completed',
         'X-JForge-Delivery': 'wh_ciap_init99',
-        'X-JForge-Signature': 't=1763193000,v1=d2hzZWNfYnRpbjMzN19jaWFwXzk5NDgxYQ==',
+        'X-Signature-SHA256': '',
+        'X-JForge-Signature': '',
       },
       payload: {
         id: 'wh_ciap_init99',
@@ -675,6 +701,34 @@ export default function JForgeOrchestrator() {
     },
   ]);
   const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
+
+  // Sign initial sample webhook entry with genuine HMAC-SHA256 on mount
+  useEffect(() => {
+    let active = true;
+    const initEntry = webhookDeliveries[0];
+    if (!initEntry || initEntry.headers?.['X-Signature-SHA256']) return;
+    const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
+    computeClientHmacHex(secret, initEntry.payload).then((hmacHex) => {
+      if (!active || !hmacHex) return;
+      setWebhookDeliveries((prev) =>
+        prev.map((item, idx) =>
+          idx === 0 && item.id === 'wh_ciap_init99'
+            ? {
+                ...item,
+                headers: {
+                  ...item.headers,
+                  'X-Signature-SHA256': `sha256=${hmacHex}`,
+                  'X-JForge-Signature': `t=1763193000,v1=${hmacHex}`,
+                },
+              }
+            : item
+        )
+      );
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Global Toast & Copy Feedback
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -705,50 +759,103 @@ export default function JForgeOrchestrator() {
     showToast(toastMsg || 'Copied to clipboard');
   };
 
-  // Record a Webhook event
-  const recordWebhookDelivery = (eventType, statusCode, pySnippet, javaSnippet, latencyMs) => {
+  // Record a Webhook event (uses real server delivery report or signs & dispatches via WebCrypto HMAC-SHA256)
+  const recordWebhookDelivery = async (
+    eventType,
+    statusCode,
+    pySnippet,
+    javaSnippet,
+    latencyMs,
+    serverDelivery = null,
+    dispatchLive = false
+  ) => {
+    if (serverDelivery && serverDelivery.headers && serverDelivery.payload) {
+      const entry = {
+        id: serverDelivery.delivery_id || 'wh_' + Math.random().toString(36).substring(2, 9),
+        statusCode: serverDelivery.status_code ?? statusCode,
+        eventType: serverDelivery.headers['X-Event-Type'] || eventType,
+        timestamp: serverDelivery.headers['X-Timestamp'] || new Date().toISOString(),
+        targetUrl: serverDelivery.target_url || webhookEndpointUrl,
+        headers: serverDelivery.headers,
+        payload: serverDelivery.payload,
+      };
+      setWebhookDeliveries((prev) => [entry, ...prev]);
+      setSelectedWebhookIndex(0);
+      return entry;
+    }
+
     const id = 'wh_' + Math.random().toString(36).substring(2, 9);
     const timestamp = new Date().toISOString();
-    const targetUrl = webhookEndpointUrl || 'https://webhook.site/ciap-btin337-receiver';
+    const unixTs = Math.floor(Date.now() / 1000);
+    const targetUrl = (webhookEndpointUrl || '/api/v1/webhook-demo').trim();
     const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
 
-    let sig = '';
-    try {
-      sig = typeof window !== 'undefined' ? btoa(secret).slice(0, 24) : 'sig_hash';
-    } catch (e) {
-      sig = 'sig_hash';
+    const baseData = {
+      source_language: 'python',
+      target_language: 'java',
+      execution_time_ms: latencyMs,
+      python_lines: (pySnippet.match(/\n/g) || []).length + 1,
+      java_preview: javaSnippet.split('\n').slice(0, 6).join('\n') + '\n// ...',
+    };
+
+    let finalStatus = statusCode;
+    let payload = {
+      id,
+      event: eventType,
+      status: finalStatus >= 200 && finalStatus < 300 ? 'delivered' : 'failed',
+      created_at: timestamp,
+      data: baseData,
+    };
+
+    let hmacHex = await computeClientHmacHex(secret, payload);
+    const headers = {
+      'Content-Type': 'application/json',
+      'User-Agent': 'JForge-Webhook-Dispatcher/1.0 (BTIN337-CIAP)',
+      'X-Event-Type': eventType,
+      'X-Timestamp': timestamp,
+      'X-JForge-Delivery': id,
+      ...(hmacHex
+        ? {
+            'X-Signature-SHA256': `sha256=${hmacHex}`,
+            'X-JForge-Signature': `t=${unixTs},v1=${hmacHex}`,
+          }
+        : {}),
+    };
+
+    if (dispatchLive && targetUrl) {
+      try {
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        finalStatus = res.status;
+      } catch (_) {
+        finalStatus = 502;
+      }
+      if (finalStatus < 200 || finalStatus >= 300) {
+        payload = { ...payload, status: 'failed' };
+        hmacHex = await computeClientHmacHex(secret, payload);
+        if (hmacHex) {
+          headers['X-Signature-SHA256'] = `sha256=${hmacHex}`;
+          headers['X-JForge-Signature'] = `t=${unixTs},v1=${hmacHex}`;
+        }
+      }
     }
 
     const entry = {
       id,
-      statusCode,
+      statusCode: finalStatus,
       eventType,
       timestamp,
       targetUrl,
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'JForge-Webhook-Dispatcher/1.0 (BTIN337-CIAP)',
-        'X-Event-Type': eventType,
-        'X-JForge-Delivery': id,
-        'X-JForge-Signature': `t=${Math.floor(Date.now() / 1000)},v1=${sig}`,
-      },
-      payload: {
-        id,
-        event: eventType,
-        status: statusCode === 200 ? 'delivered' : 'failed',
-        created_at: timestamp,
-        data: {
-          source_language: 'python',
-          target_language: 'java',
-          execution_time_ms: latencyMs,
-          python_lines: (pySnippet.match(/\n/g) || []).length + 1,
-          java_preview: javaSnippet.split('\n').slice(0, 6).join('\n') + '\n// ...',
-        },
-      },
+      headers,
+      payload,
     };
 
     setWebhookDeliveries((prev) => [entry, ...prev]);
     setSelectedWebhookIndex(0);
+    return entry;
   };
 
   // Primary Transpiler Handler (Hits /api/v1/convert with local fallback)
@@ -764,6 +871,7 @@ export default function JForgeOrchestrator() {
     let javaResult = '';
     let summaryNote = '';
     let remoteSuccess = false;
+    let serverWebhookDelivery = null;
 
     try {
       // 1. Send live POST request to backend API route
@@ -791,6 +899,7 @@ export default function JForgeOrchestrator() {
             javaResult = returnedJava;
             summaryNote = resData?.summary || `Successfully synthesized via POST /api/v1/convert (${javaTargetVersion}).`;
             remoteSuccess = true;
+            serverWebhookDelivery = resData?.webhook_delivery || null;
             const hit = resData?.cache?.hit || false;
             setIsCacheHit(hit);
             if (resData?.self_healing) {
@@ -824,7 +933,14 @@ export default function JForgeOrchestrator() {
       setLatency(elapsedMs);
       setCompilerSummary(summaryNote);
 
-      recordWebhookDelivery('code.conversion.completed', 200, pythonCode, javaResult, elapsedMs);
+      await recordWebhookDelivery(
+        'code.conversion.completed',
+        serverWebhookDelivery?.status_code || 200,
+        pythonCode,
+        javaResult,
+        elapsedMs,
+        serverWebhookDelivery
+      );
       showToast(remoteSuccess ? 'Transpiled via /api/v1/convert' : 'Transpiled via AST Engine');
     } catch (err) {
       setJavaCode(`// Transpilation Error: ${err.message}`);
@@ -884,12 +1000,12 @@ export default function JForgeOrchestrator() {
 **Course:** Gen AI Applications (BTIN337) — Continuous Internal Assessment Practical (CIA-P)
 
 ## 1. Project Overview
-J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API service powered by Google Gemini 1.5 Flash and deterministic AST mapping rules.
+J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API service powered by Google Gemini 2.5 Flash and deterministic AST mapping rules.
 
 ## 2. CIA-P Requirements Fulfilled
 - **Application Development:** Full dual-pane transpiler studio + AST type mapping inspector.
 - **Deployment:** Hosted on Vercel Serverless Edge.
-- **API Integration:** Direct Google Gemini API integration (\`gemini-1.5-flash\`).
+- **API Integration:** Direct Google Gemini API integration (\`gemini-2.5-flash\`).
 - **API Export Methods:** \`POST /api/v1/convert\` accepting JSON payloads.
 - **Webhooks:** Asynchronous JSON event delivery (\`code.conversion.completed\`) with HMAC signatures.
 - **API Key Authentication:** Protected via \`x-api-key\` header middleware.
@@ -1039,7 +1155,14 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
         setPgResponseBody(JSON.stringify(resData, null, 2));
 
         if (liveRes.ok) {
-          recordWebhookDelivery('code.conversion.completed', 200, parsedBody.python_code || '', resData?.data?.java_code || '', elapsed);
+          await recordWebhookDelivery(
+            'code.conversion.completed',
+            resData?.webhook_delivery?.status_code || 200,
+            parsedBody.python_code || '',
+            resData?.data?.java_code || '',
+            elapsed,
+            resData?.webhook_delivery || null
+          );
         }
         showToast(`HTTP ${liveRes.status}: Response received`);
         setIsPgLoading(false);
@@ -1114,7 +1237,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       };
 
       setPgResponseBody(JSON.stringify(responsePayload, null, 2));
-      recordWebhookDelivery('code.conversion.completed', 200, parsedBody.python_code, responsePayload.data.java_code, elapsed);
+      await recordWebhookDelivery('code.conversion.completed', 200, parsedBody.python_code, responsePayload.data.java_code, elapsed);
       showToast('HTTP 200 OK: Conversion & Webhook complete');
     } finally {
       setIsPgLoading(false);
@@ -1123,21 +1246,25 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
 
   const generatedCurl = useMemo(() => {
     const clean = (pgRequestBody || '').replace(/\n/g, ' ');
-    return `curl -X POST https://jforge-ciap.vercel.app/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${pgApiKey}" \\\n  -d '${clean}'`;
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : 'https://py2java-transpiler.vercel.app';
+    return `curl -X POST ${origin}/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${pgApiKey}" \\\n  -d '${clean}'`;
   }, [pgApiKey, pgRequestBody]);
 
   // Webhook actions
-  const handleReplayWebhook = (idx) => {
+  const handleReplayWebhook = async (idx) => {
     const orig = webhookDeliveries[idx];
     if (!orig) return;
-    recordWebhookDelivery(
+    const entry = await recordWebhookDelivery(
       orig.eventType + '.replay',
       200,
       'replayed',
       orig.payload?.data?.java_preview || '',
-      22
+      22,
+      null,
+      true
     );
-    showToast(`Replayed webhook ${orig.id}`);
+    showToast(`Replayed webhook ${orig.id} (HTTP ${entry.statusCode})`);
   };
 
   const handleClearWebhookLogs = () => {
@@ -1210,6 +1337,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               setBypassCache={setBypassCache}
               isCacheHit={isCacheHit}
               selfHealing={selfHealing}
+              gatewayApiKey={configuredGatewayKey}
             />
           )}
 
@@ -1242,9 +1370,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               webhookDeliveries={webhookDeliveries}
               selectedWebhookIndex={selectedWebhookIndex}
               setSelectedWebhookIndex={setSelectedWebhookIndex}
-              onTriggerManualWebhook={() => {
-                recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31);
-                showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP 200)`);
+              onTriggerManualWebhook={async () => {
+                const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31, null, true);
+                showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP ${entry.statusCode})`);
               }}
               onClearLogs={handleClearWebhookLogs}
               onReplayWebhook={handleReplayWebhook}
@@ -1282,7 +1410,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
 
             <div className="space-y-3 text-xs">
               <p style={{ color: 'var(--text-secondary)' }}>
-                J-Forge includes a <strong>Smart Deterministic AST Transpiler</strong> that works offline out-of-the-box. Optionally, provide a Google AI Studio <code className="font-mono">GEMINI_API_KEY</code> to route conversions directly to <code className="font-mono">gemini-1.5-flash</code>.
+                J-Forge includes a <strong>Smart Deterministic AST Transpiler</strong> that works offline out-of-the-box. Optionally, provide a Google AI Studio <code className="font-mono">GEMINI_API_KEY</code> to route conversions directly to <code className="font-mono">gemini-2.5-flash</code>.
               </p>
 
               <div>
