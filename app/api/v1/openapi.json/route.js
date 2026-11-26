@@ -59,7 +59,7 @@ export async function GET() {
                   properties: {
                     python_code: { type: 'string', example: 'def add(a: int, b: int) -> int:\n    return a + b' },
                     java_version: { type: 'string', default: '17', example: '17' },
-                    webhook_url: { type: 'string', format: 'uri', example: 'https://webhook.site/demo-url' },
+                    webhook_url: { type: 'string', format: 'uri', example: '/api/v1/webhook-demo' },
                     bypass_cache: { type: 'boolean', default: false, description: 'Bypass AST cache and force live transpilation' },
                   },
                 },
@@ -131,6 +131,24 @@ export async function GET() {
           },
         },
       },
+      '/api/v1/webhook-demo': {
+        post: {
+          summary: 'Mock Webhook Receiver Endpoint',
+          description: 'Receives and acknowledges signed JSON webhook payloads for live evaluation and testing.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { type: 'object' },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Webhook event acknowledged with echoed payload and delivery metadata' },
+            '400': { description: 'Malformed JSON webhook payload' },
+          },
+        },
+      },
       '/api/v1/health': {
         get: {
           summary: 'Health Check & Security Probe',
@@ -152,6 +170,15 @@ export async function GET() {
                 },
               },
             },
+          },
+        },
+      },
+      '/api/v1/openapi.json': {
+        get: {
+          summary: 'OpenAPI 3.1.0 Specification Document',
+          description: 'Returns the machine-readable OpenAPI 3.1.0 schema covering all J-Forge endpoints.',
+          responses: {
+            '200': { description: 'OpenAPI 3.1.0 JSON schema' },
           },
         },
       },
