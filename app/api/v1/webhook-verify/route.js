@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server.js';
 import crypto from 'crypto';
+import { computeWebhookSignature } from '../../../../lib/webhook.js';
 
 /**
  * POST /api/v1/webhook-verify
@@ -35,15 +36,11 @@ export async function POST(request) {
     );
   }
 
-  const signingSecret = secret || process.env.WEBHOOK_SECRET || 'whsec_btin337_ciap_99481a';
-  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const expectedSignature = computeWebhookSignature(payload, secret);
 
-  const expectedSignature = crypto
-    .createHmac('sha256', signingSecret)
-    .update(payloadStr)
-    .digest('hex');
-
-  const cleanSignature = signature.replace(/^sha256=/, '').trim();
+  const sigStr = String(signature).trim();
+  const v1Match = sigStr.match(/(?:^|,)v1=([a-f0-9]+)/i);
+  const cleanSignature = (v1Match ? v1Match[1] : sigStr.replace(/^sha256=/i, '')).trim().toLowerCase();
   const cleanBuf = Buffer.from(cleanSignature, 'utf8');
   const expectedBuf = Buffer.from(expectedSignature, 'utf8');
   const isValid =
