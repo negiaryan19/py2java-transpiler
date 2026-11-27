@@ -6,9 +6,7 @@ import {
   Code2,
   Terminal,
   Webhook,
-  BookOpen,
   Sliders,
-  Plug,
   Sun,
   Flame,
   Moon,
@@ -52,17 +50,7 @@ export default function Navigation({
               className="text-xs px-2 py-0.5 font-mono t-subtle hidden sm:inline-block"
               style={{ color: 'var(--text-secondary)' }}
             >
-              Py3.11 → Java 17 AST
-            </span>
-            <span
-              className="text-[11px] font-mono px-2 py-0.5 rounded font-semibold hidden md:inline-block"
-              style={{
-                backgroundColor: 'var(--accent-badge-bg)',
-                color: 'var(--accent-badge-text)',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              BTIN337 CIA-P (20M)
+              Python → Java
             </span>
           </div>
         </div>
@@ -128,24 +116,21 @@ export default function Navigation({
             <Sliders className="w-3 h-3 opacity-75" />
           </button>
 
-          <button
-            onClick={() => setActiveView('playground')}
-            className="t-btn-primary px-3 py-1.5 text-xs font-mono hidden md:flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plug className="w-3 h-3" />
-            <span>POST /api/v1/convert</span>
-          </button>
-
           {authUser ? (
             <div className="flex items-center gap-1.5">
               <span
                 className="t-subtle px-2.5 py-1.5 text-xs font-mono hidden sm:flex items-center gap-1.5"
-                title={authUser.email}
+                title={[authUser.name, authUser.email, authUser.organization, authUser.role].filter(Boolean).join(' • ')}
               >
                 <span className="w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
                   {(authUser.name || authUser.email || 'U').charAt(0).toUpperCase()}
                 </span>
                 <span className="max-w-[110px] truncate">{authUser.name || authUser.email}</span>
+                {authUser.role && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold hidden xl:inline-block uppercase">
+                    {authUser.role}
+                  </span>
+                )}
               </span>
               <button
                 onClick={onLogout}
@@ -235,19 +220,6 @@ export function SidebarRail({
             </span>
           </button>
 
-          <button
-            onClick={() => setActiveView('docs')}
-            className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
-              activeView === 'docs' ? 'active' : ''
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <BookOpen className="w-4 h-4 shrink-0" />
-              <span>API Docs & CIA-P</span>
-            </span>
-            <span className="text-[10px] font-mono opacity-60">20M</span>
-          </button>
-
           <Link
             href="/ast-diff"
             className="nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/15 rounded transition-all"
@@ -261,41 +233,6 @@ export function SidebarRail({
             </span>
           </Link>
         </nav>
-
-        {/* Active API Telemetry Card */}
-        <div className="t-surface p-3 space-y-2.5 hidden lg:block">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono font-semibold">Gateway Telemetry</span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
-              200 OK
-            </span>
-          </div>
-          <div className="space-y-1.5 text-[11px] font-mono" style={{ color: 'var(--text-secondary)' }}>
-            <div className="flex justify-between">
-              <span>Auth Header:</span>
-              <span className="font-semibold" style={{ color: 'var(--text-main)' }}>x-api-key</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Last Latency:</span>
-              <span className="font-semibold" style={{ color: 'var(--text-main)' }}>{latency} ms</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Webhook Mode:</span>
-              <span className="font-semibold text-emerald-600">Async JSON</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Student & Course Academic Metadata */}
-      <div className="hidden lg:block pt-4 t-border-t space-y-2 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-        <div className="flex items-center justify-between font-mono">
-          <span className="font-semibold" style={{ color: 'var(--text-main)' }}>CSE (AI & ML)</span>
-          <span>2025-29</span>
-        </div>
-        <p className="text-[11px] leading-relaxed">
-          Individual Practical Project • Python to Java Code Converter with REST API, Auth & Webhooks.
-        </p>
       </div>
     </aside>
   );

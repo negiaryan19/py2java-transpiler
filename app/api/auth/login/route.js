@@ -29,7 +29,7 @@ export async function POST(request) {
 
   const { email, password } = body || {};
 
-  if (!email || typeof email !== 'string' || !email.includes('@')) {
+  if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
     return NextResponse.json({ ok: false, error: 'Please enter a valid email address.' }, { status: 400 });
   }
 
@@ -37,38 +37,49 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Please enter your password.' }, { status: 400 });
   }
 
-  const result = await authenticateUser({ email, password });
+  try {
+    const result = await authenticateUser({ email, password });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 401 });
-  }
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 401 });
+    }
 
-  const sessionToken = createSessionToken({
-    sub: result.user.id,
-    email: result.user.email,
-    name: result.user.name,
-    provider: 'email',
-  });
-
-  const response = NextResponse.json({
-    ok: true,
-    user: {
-      id: result.user.id,
+    const sessionToken = createSessionToken({
+      sub: result.user.id,
       email: result.user.email,
       name: result.user.name,
       organization: result.user.organization,
       role: result.user.role,
       provider: 'email',
-    },
-  });
+    });
 
-  response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_TTL_SECONDS,
-  });
+    const response = NextResponse.json({
+      ok: true,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        organization: result.user.organization,
+        role: result.user.role,
+        provider: 'email',
+      },
+    });
 
-  return response;
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+    });
+
+    return response;
+  } catch (err) {
+    const msg = String(err?.message || '');
+    const isConfigErr = msg.includes('DATABASE_URL') || msg.includes('AUTH_SECRET');
+    return NextResponse.json(
+      { ok: false, error: isConfigErr ? msg : 'Unable to sign in right now. Please retry.' },
+      { status: isConfigErr ? 503 : 500 }
+    );
+  }
 }

@@ -15,6 +15,9 @@ import {
 import { GET as googleAuthGet } from '../app/api/auth/google/route.js';
 import { GET as googleCallbackGet } from '../app/api/auth/google/callback/route.js';
 import { POST as logoutPost } from '../app/api/auth/logout/route.js';
+import { POST as registerPost } from '../app/api/auth/register/route.js';
+import { POST as loginPost } from '../app/api/auth/login/route.js';
+import { hashPassword, verifyPassword } from '../lib/db.js';
 
 test('OAuth Session Security: Fails closed when AUTH_SECRET is missing or too short', () => {
   const prevSecret = process.env.AUTH_SECRET;
@@ -153,5 +156,70 @@ test('OAuth Route Handlers: Rejects unconfigured OAuth, validates callback state
     else delete process.env.GOOGLE_CLIENT_ID;
     if (prevClientSecret !== undefined) process.env.GOOGLE_CLIENT_SECRET = prevClientSecret;
     else delete process.env.GOOGLE_CLIENT_SECRET;
+  }
+});
+
+test('Password Security & DB Auth Routes: Hashes passwords safely, preserves profile claims, and fails closed without DATABASE_URL', async () => {
+  const prevSecret = process.env.AUTH_SECRET;
+  const prevDbUrl = process.env.DATABASE_URL;
+
+  try {
+    // 1. PBKDF2 hash & timing-safe verification
+    const hash = await hashPassword('StrongPass!2026');
+    assert.ok(hash.startsWith('120000.sha512.'));
+    assert.equal(await verifyPassword('StrongPass!2026', hash), true);
+    assert.equal(await verifyPassword('WrongPass', hash), false);
+    assert.equal(await verifyPassword('StrongPass!2026', 'malformed-hash'), false);
+
+    // 2. Session token preserves organization & role
+    process.env.AUTH_SECRET = 'c'.repeat(64);
+    const token = createSessionToken({
+      sub: 'user-uuid-42',
+      email: 'aryan@gmail.com',
+      name: 'Aryan Negi',
+      organization: 'Chandigarh University',
+      role: 'student',
+      provider: 'email',
+    });
+    const decoded = verifySessionToken(token);
+    assert.equal(decoded.organization, 'Chandigarh University');
+    assert.equal(decoded.role, 'student');
+    assert.equal(decoded.provider, 'email');
+
+    // 3. Fail-closed 503 when DATABASE_URL is absent
+    delete process.env.DATABASE_URL;
+    const regNoDb = await registerPost(
+      new Request('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'student@gmail.com', password: 'Password123', name: 'Student' }),
+      })
+    );
+    assert.equal(regNoDb.status, 503);
+
+    const loginNoDb = await loginPost(
+      new Request('http://localhost:3000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'student@gmail.com', password: 'Password123' }),
+      })
+    );
+    assert.equal(loginNoDb.status, 503);
+
+    // 4. Rejects malformed payloads cleanly with 400
+    process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/jforge_test';
+    const badReg = await registerPost(
+      new Request('http://localhost:3000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'not-an-email', password: '123', name: '' }),
+      })
+    );
+    assert.equal(badReg.status, 400);
+  } finally {
+    if (prevSecret !== undefined) process.env.AUTH_SECRET = prevSecret;
+    else delete process.env.AUTH_SECRET;
+    if (prevDbUrl !== undefined) process.env.DATABASE_URL = prevDbUrl;
+    else delete process.env.DATABASE_URL;
   }
 });

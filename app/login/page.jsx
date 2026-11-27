@@ -2,9 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Lock, Mail, User, Building2, GraduationCap, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
+function sanitizeReturnPath(raw = '/') {
+  if (typeof raw !== 'string') return '/';
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.includes('\\')) {
+    return '/';
+  }
+  return trimmed.length <= 200 ? trimmed : '/';
+}
+
 export default function LoginPage() {
+  const router = useRouter();
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,18 +26,43 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [returnTo, setReturnTo] = useState('/');
+  const [oauthConfigured, setOauthConfigured] = useState(true);
+  const [dbConfigured, setDbConfigured] = useState(true);
 
-  // Check if already logged in
+  // Check session + read safe returnTo on mount
   useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams(window.location.search);
+    const nextPath = sanitizeReturnPath(params.get('returnTo') || '/');
+    const authErr = params.get('auth_error');
+
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => r.json())
       .then((s) => {
+        if (!active) return;
+        setReturnTo(nextPath);
+        if (authErr) {
+          setError(`Sign-in did not complete (${authErr}).`);
+        }
+        setOauthConfigured(s?.oauthConfigured !== false);
+        setDbConfigured(s?.dbConfigured !== false);
         if (s?.authenticated) {
-          window.location.href = '/';
+          router.replace(nextPath);
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        if (!active) return;
+        setReturnTo(nextPath);
+        if (authErr) {
+          setError(`Sign-in did not complete (${authErr}).`);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,12 +96,10 @@ export default function LoginPage() {
           : `Welcome back, ${data.user?.name || 'User'}! Redirecting...`
       );
 
-      // Redirect to home after brief delay
       setTimeout(() => {
-        const params = new URLSearchParams(window.location.search);
-        const returnTo = params.get('returnTo') || '/';
-        window.location.href = returnTo;
-      }, 800);
+        router.replace(returnTo);
+        router.refresh();
+      }, 650);
     } catch {
       setError('Network error. Please check your connection and try again.');
       setLoading(false);
@@ -125,6 +159,13 @@ export default function LoginPage() {
             Create Account
           </button>
         </div>
+
+        {!dbConfigured && (
+          <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-200 text-xs font-mono flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+            <span>Database connection (`DATABASE_URL`) is not configured yet in this environment.</span>
+          </div>
+        )}
 
         {/* Error / Success Messages */}
         {error && (
@@ -269,26 +310,30 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Divider */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-px bg-slate-800" />
-          <span className="text-[11px] font-mono text-slate-500">or</span>
-          <div className="flex-1 h-px bg-slate-800" />
-        </div>
+        {oauthConfigured && (
+          <>
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-slate-800" />
+              <span className="text-[11px] font-mono text-slate-500">or</span>
+              <div className="flex-1 h-px bg-slate-800" />
+            </div>
 
-        {/* Google Sign-In (Optional) */}
-        <a
-          href="/api/auth/google?returnTo=/"
-          className="w-full py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-200 font-mono text-xs flex items-center justify-center gap-2.5 transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
-            />
-          </svg>
-          <span>Continue with Google (Gmail)</span>
-        </a>
+            {/* Google Sign-In (Optional) */}
+            <a
+              href={`/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`}
+              className="w-full py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-200 font-mono text-xs flex items-center justify-center gap-2.5 transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
+                />
+              </svg>
+              <span>Continue with Google (Gmail)</span>
+            </a>
+          </>
+        )}
 
         {/* Footer */}
         <p className="text-center text-[11px] text-slate-500 font-mono">

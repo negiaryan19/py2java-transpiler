@@ -49,45 +49,56 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, error: 'Please enter your full name.' }, { status: 400 });
   }
 
-  const result = await createUser({
-    email: email.trim(),
-    password,
-    name: name.trim().slice(0, 120),
-    organization: typeof organization === 'string' ? organization.trim().slice(0, 120) : '',
-    role: typeof role === 'string' ? role.trim().slice(0, 60) : 'student',
-  });
+  try {
+    const result = await createUser({
+      email: email.trim(),
+      password,
+      name: name.trim().slice(0, 120),
+      organization: typeof organization === 'string' ? organization.trim().slice(0, 120) : '',
+      role: typeof role === 'string' ? role.trim().slice(0, 60) : 'student',
+    });
 
-  if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 409 });
-  }
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 409 });
+    }
 
-  // Issue session cookie
-  const sessionToken = createSessionToken({
-    sub: result.user.id,
-    email: result.user.email,
-    name: result.user.name,
-    provider: 'email',
-  });
-
-  const response = NextResponse.json({
-    ok: true,
-    user: {
-      id: result.user.id,
+    // Issue session cookie
+    const sessionToken = createSessionToken({
+      sub: result.user.id,
       email: result.user.email,
       name: result.user.name,
       organization: result.user.organization,
       role: result.user.role,
       provider: 'email',
-    },
-  });
+    });
 
-  response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: SESSION_TTL_SECONDS,
-  });
+    const response = NextResponse.json({
+      ok: true,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        organization: result.user.organization,
+        role: result.user.role,
+        provider: 'email',
+      },
+    });
 
-  return response;
+    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: SESSION_TTL_SECONDS,
+    });
+
+    return response;
+  } catch (err) {
+    const msg = String(err?.message || '');
+    const isConfigErr = msg.includes('DATABASE_URL') || msg.includes('AUTH_SECRET');
+    return NextResponse.json(
+      { ok: false, error: isConfigErr ? msg : 'Unable to create account right now. Please retry.' },
+      { status: isConfigErr ? 503 : 500 }
+    );
+  }
 }

@@ -26,6 +26,8 @@ export async function GET() {
             sub: session.sub,
             email: session.email,
             name: session.name,
+            organization: session.organization || '',
+            role: session.role || '',
             provider: session.provider,
           }
         : null,
