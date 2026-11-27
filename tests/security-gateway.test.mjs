@@ -67,10 +67,10 @@ test('Health Route: Returns 200 OK with security diagnostics and route catalog',
   assert.equal(data.status, 'healthy');
   assert.ok(data.uptime_seconds >= 0);
   assert.ok(data.security.timing_safe_mitigation);
-  assert.equal(data.exported_routes.length, 8);
+  assert.equal(data.exported_routes.length, 15);
 });
 
-test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 8 endpoints', async () => {
+test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 15 V2 endpoints', async () => {
   const res = await openapiGet();
   assert.equal(res.status, 200);
   const spec = await res.json();
@@ -78,12 +78,19 @@ test('OpenAPI Route: Returns valid OpenAPI 3.1.0 document with all 8 endpoints',
   assert.ok(spec.paths['/api/v1/convert']);
   assert.ok(spec.paths['/api/v1/explain']);
   assert.ok(spec.paths['/api/v1/ast-diff']);
+  assert.ok(spec.paths['/api/v1/analyze']);
+  assert.ok(spec.paths['/api/v1/verify']);
+  assert.ok(spec.paths['/api/v1/repair']);
+  assert.ok(spec.paths['/api/v1/run-python']);
+  assert.ok(spec.paths['/api/v1/run-java']);
+  assert.ok(spec.paths['/api/v1/intelligence']);
+  assert.ok(spec.paths['/api/v1/projects/migrate']);
   assert.ok(spec.paths['/api/v1/webhook-verify']);
   assert.ok(spec.paths['/api/v1/webhook-demo']);
   assert.ok(spec.paths['/api/v1/health']);
   assert.ok(spec.paths['/api/v1/metrics']);
   assert.ok(spec.paths['/api/v1/openapi.json']);
-  assert.equal(Object.keys(spec.paths).length, 8);
+  assert.equal(Object.keys(spec.paths).length, 15);
 });
 
 test('SSRF Guard: Blocks cloud metadata, loopback, private IPv4/IPv6, file:// schemes, and internal DNS', async () => {

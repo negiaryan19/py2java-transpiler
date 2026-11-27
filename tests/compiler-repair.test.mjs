@@ -46,6 +46,16 @@ test('Compiler Repair Loop (mocked): fixes missing import and verifies behaviora
   assert.equal(callNum, 1);
 });
 
+test('Compiler Repair: strips unused Spring Boot imports reported missing by javac', () => {
+  const brokenSpring = `package com.jforge.ciap;\n\nimport java.util.*;\nimport org.springframework.web.bind.annotation.*;\nimport org.springframework.http.*;\n\npublic class Solution {\n  public static void main(String[] args) {\n    for (int i = 0; i < 10; i++) System.out.println(i);\n  }\n}`;
+  const res = applyJavacDiagnosticRepairs(
+    brokenSpring,
+    'prog.java:4: error: package org.springframework.web.bind.annotation does not exist\nprog.java:5: error: package org.springframework.http does not exist'
+  );
+  assert.equal(res.repairedCode.includes('org.springframework'), false);
+  assert.ok(res.applied.some((a) => a.includes('Spring Boot')));
+});
+
 test('Repair Route: POST /api/v1/repair rejects missing code with 400', async () => {
   const req = new Request('http://localhost/api/v1/repair', {
     method: 'POST',

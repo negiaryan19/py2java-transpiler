@@ -40,6 +40,14 @@ test('AST Engine: Transpiles function definition and return', () => {
   const pyCode = 'def add(a: int, b: int) -> int:\n    return a + b';
   const javaCode = deterministicAstFallback(pyCode, 'Java 17 LTS');
 
-  assert.ok(javaCode.includes('public static Object add('));
+  assert.ok(javaCode.includes('public static int add(int a, int b)'));
   assert.ok(javaCode.includes('return a + b;'));
+});
+
+test('AST Engine: Translates __main__ guard, negative indexing, and true division safely', () => {
+  const pyCode = 'arr = [10, 20]\nif __name__ == "__main__":\n    print(arr[-1])\n    print(7 / 2)';
+  const javaCode = deterministicAstFallback(pyCode, 'Java 21 LTS');
+  assert.ok(javaCode.includes('if (true) { // __main__'));
+  assert.ok(javaCode.includes('arr.get(arr.size() -1)'));
+  assert.ok(javaCode.includes('(double) 7 / 2'));
 });
