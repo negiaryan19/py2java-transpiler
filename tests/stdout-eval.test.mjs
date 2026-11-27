@@ -45,3 +45,12 @@ test('Stdout Evaluator: handles input(), break, and for-else without throwing', 
   ].join('\n');
   assert.deepEqual(evaluatePythonStdout(code), ['Prime number']);
 });
+
+test('Stdout Evaluator: evaluates list comprehensions with filter condition', () => {
+  const code = [
+    'numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
+    'squares = [x**2 for x in numbers if x % 2 == 0]',
+    'print(squares)',
+  ].join('\n');
+  assert.deepEqual(evaluatePythonStdout(code), ['[4, 16, 36, 64, 100]']);
+});
