@@ -123,8 +123,8 @@ cp .env.example .env.local
 Fill in your credentials:
 ```env
 GEMINI_API_KEY="AIzaSy_YOUR_GOOGLE_AI_STUDIO_KEY"
-APP_API_KEY="ciap-secret-key-2026"
-WEBHOOK_SECRET="whsec_btin337_ciap_99481a"
+APP_API_KEY="YOUR_GENERATED_APP_API_KEY"
+WEBHOOK_SECRET="YOUR_GENERATED_WEBHOOK_SECRET"
 DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid-here"
 ```
 
@@ -142,7 +142,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | Header | Value | Description |
 |:---|:---|:---|
 | `Content-Type` | `application/json` | Request encoding |
-| `x-api-key` | `ciap-secret-key-2026` | Mandatory authentication header |
+| `x-api-key` | `<YOUR_APP_API_KEY>` | Mandatory authentication header |
 
 ### Request Body (JSON)
 ```json
@@ -194,7 +194,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```bash
 curl -X POST http://localhost:3000/api/v1/convert \
   -H "Content-Type: application/json" \
-  -H "x-api-key: ciap-secret-key-2026" \
+  -H "x-api-key: $APP_API_KEY" \
   -d '{
     "python_code": "def factorial(n: int) -> int:\n    return 1 if n <= 1 else n * factorial(n - 1)\n\nprint(factorial(5))",
     "webhook_url": "http://localhost:3000/api/v1/webhook-demo"
@@ -213,7 +213,7 @@ curl -X POST http://localhost:3000/api/v1/convert \
 ```bash
 curl -X POST http://localhost:3000/api/v1/convert \
   -H "Content-Type: application/json" \
-  -H "x-api-key: ciap-secret-key-2026" \
+  -H "x-api-key: $APP_API_KEY" \
   -d '{"python_code": "   "}'
 ```
 
@@ -221,7 +221,7 @@ curl -X POST http://localhost:3000/api/v1/convert \
 ```bash
 curl -X POST http://localhost:3000/api/v1/explain \
   -H "Content-Type: application/json" \
-  -H "x-api-key: ciap-secret-key-2026" \
+  -H "x-api-key: $APP_API_KEY" \
   -d '{
     "python_code": "for i in range(10):\n    print(i)",
     "java_version": "17"
@@ -235,7 +235,7 @@ curl -X POST http://localhost:3000/api/v1/webhook-verify \
   -d '{
     "payload": {"event": "code.conversion.completed"},
     "signature": "sha256=COMPUTED_HEX_DIGEST",
-    "secret": "whsec_btin337_ciap_99481a"
+    "secret": "YOUR_WEBHOOK_SECRET"
   }'
 ```
 
@@ -354,8 +354,8 @@ Outputs:
 3. Import your repository.
 4. Under **Environment Variables**, add:
    - `GEMINI_API_KEY`: Your Google AI Studio API key
-   - `APP_API_KEY`: `ciap-secret-key-2026`
-   - `WEBHOOK_SECRET`: `whsec_btin337_ciap_99481a`
+   - `APP_API_KEY`: `<32+ char cryptographically random API key>`
+   - `WEBHOOK_SECRET`: `<32+ char cryptographically random HMAC secret>`
 5. Click **Deploy**. Vercel will build and deploy the application within ~45 seconds.
 
 ---

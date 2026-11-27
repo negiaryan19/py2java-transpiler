@@ -24,13 +24,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Automated Test Suite (49 Unit Tests)
+      - name: Run Automated Test Suite
         run: npm test
         env:
-          APP_API_KEY: "ciap-secret-key-2026"
+          APP_API_KEY: "ci-ephemeral-test-gateway-key"
+          WEBHOOK_SECRET: "ci-ephemeral-test-webhook-secret"
 
       - name: Verify Next.js Build
         run: npm run build
         env:
-          APP_API_KEY: "ciap-secret-key-2026"
+          APP_API_KEY: "ci-ephemeral-test-gateway-key"
+          WEBHOOK_SECRET: "ci-ephemeral-test-webhook-secret"
           GEMINI_API_KEY: "placeholder-ci-key"

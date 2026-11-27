@@ -7,6 +7,11 @@ import TranspilerStudio from './components/TranspilerStudio';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
+import {
+  studioTranspileAction,
+  studioDispatchWebhookAction,
+  studioGetSampleSignatureAction,
+} from './actions.js';
 
 /* ==========================================================================
    ALGORITHMIC PRESET REPOSITORY
@@ -552,26 +557,6 @@ function computeProgramStdout(pyCode) {
     : 'Execution verified successfully with exit code 0.';
 }
 
-async function computeClientHmacHex(secret, payloadObj) {
-  const payloadStr = typeof payloadObj === 'string' ? payloadObj : JSON.stringify(payloadObj);
-  if (typeof window !== 'undefined' && window.crypto?.subtle) {
-    const enc = new TextEncoder();
-    const key = await window.crypto.subtle.importKey(
-      'raw',
-      enc.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    );
-    const sigBuf = await window.crypto.subtle.sign('HMAC', key, enc.encode(payloadStr));
-    return Array.from(new Uint8Array(sigBuf))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-  }
-  return '';
-}
-
-const INITIAL_WEBHOOK_SECRET = 'whsec_btin337_ciap_99481a';
 const INITIAL_SAMPLE_WEBHOOK = {
   id: 'wh_ciap_init99',
   statusCode: 200,
@@ -635,22 +620,16 @@ export default function JForgeOrchestrator() {
     },
   });
 
-  // Engine Modal & Key Configuration
+  // Engine Modal & Key Configuration (server secret never exposed in browser bundle)
   const [engineModalOpen, setEngineModalOpen] = useState(false);
   const [liveGeminiKey, setLiveGeminiKey] = useState('');
   const [activeEngine, setActiveEngine] = useState('Gemini Live');
   const [tempGeminiKey, setTempGeminiKey] = useState('');
-  const [configuredGatewayKey, setConfiguredGatewayKey] = useState(
-    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
-  );
-  const [tempGatewayKey, setTempGatewayKey] = useState(
-    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
-  );
+  const [configuredGatewayKey, setConfiguredGatewayKey] = useState('');
+  const [tempGatewayKey, setTempGatewayKey] = useState('');
 
   // Playground state
-  const [pgApiKey, setPgApiKey] = useState(
-    process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026'
-  );
+  const [pgApiKey, setPgApiKey] = useState('');
   const [pgRequestBody, setPgRequestBody] = useState(
     JSON.stringify(
       {
@@ -700,18 +679,18 @@ export default function JForgeOrchestrator() {
   );
   const [isPgLoading, setIsPgLoading] = useState(false);
 
-  // Webhook state
+  // Webhook state (signing defaults cleanly to server WEBHOOK_SECRET unless overridden)
   const [webhookEndpointUrl, setWebhookEndpointUrl] = useState('/api/v1/webhook-demo');
-  const [webhookSigningSecret, setWebhookSigningSecret] = useState(INITIAL_WEBHOOK_SECRET);
+  const [webhookSigningSecret, setWebhookSigningSecret] = useState('');
   const [webhookEventTopic, setWebhookEventTopic] = useState('code.conversion.completed');
   const [webhookDeliveries, setWebhookDeliveries] = useState([INITIAL_SAMPLE_WEBHOOK]);
   const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
 
-  // Sign initial sample webhook entry with genuine HMAC-SHA256 on mount
+  // Hydrate initial sample webhook signature via server action without leaking WEBHOOK_SECRET
   useEffect(() => {
     let active = true;
-    computeClientHmacHex(INITIAL_WEBHOOK_SECRET, INITIAL_SAMPLE_WEBHOOK.payload).then((hmacHex) => {
-      if (!active || !hmacHex) return;
+    studioGetSampleSignatureAction().then((res) => {
+      if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
       setWebhookDeliveries((prev) =>
         prev.map((item, idx) =>
           idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
@@ -719,14 +698,13 @@ export default function JForgeOrchestrator() {
                 ...item,
                 headers: {
                   ...item.headers,
-                  'X-Signature-SHA256': `sha256=${hmacHex}`,
-                  'X-JForge-Signature': `t=1763193000,v1=${hmacHex}`,
+                  ...res.headers,
                 },
               }
             : item
         )
       );
-    });
+    }).catch(() => {});
     return () => {
       active = false;
     };
@@ -761,15 +739,14 @@ export default function JForgeOrchestrator() {
     showToast(toastMsg || 'Copied to clipboard');
   };
 
-  // Record a Webhook event (uses real server delivery report or signs & dispatches via WebCrypto HMAC-SHA256)
+  // Record a Webhook event via server delivery report or SSRF-safe server dispatch action
   const recordWebhookDelivery = async (
     eventType,
     statusCode,
     pySnippet,
     javaSnippet,
     latencyMs,
-    serverDelivery = null,
-    dispatchLive = false
+    serverDelivery = null
   ) => {
     if (serverDelivery && serverDelivery.headers && serverDelivery.payload) {
       const entry = {
@@ -786,81 +763,22 @@ export default function JForgeOrchestrator() {
       return entry;
     }
 
-    const id = 'wh_' + Math.random().toString(36).substring(2, 9);
-    const timestamp = new Date().toISOString();
-    const unixTs = Math.floor(Date.now() / 1000);
-    const targetUrl = (webhookEndpointUrl || '/api/v1/webhook-demo').trim();
-    const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
-
-    const baseData = {
-      source_language: 'python',
-      target_language: 'java',
-      execution_time_ms: latencyMs,
-      python_lines: (pySnippet.match(/\n/g) || []).length + 1,
-      java_preview: javaSnippet.split('\n').slice(0, 6).join('\n') + '\n// ...',
-    };
-
-    let finalStatus = statusCode;
-    let payload = {
-      id,
-      event: eventType,
-      status: finalStatus >= 200 && finalStatus < 300 ? 'delivered' : 'failed',
-      created_at: timestamp,
-      data: baseData,
-    };
-
-    let hmacHex = await computeClientHmacHex(secret, payload);
-    const headers = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'JForge-Webhook-Dispatcher/1.0 (BTIN337-CIAP)',
-      'X-Event-Type': eventType,
-      'X-Timestamp': timestamp,
-      'X-JForge-Delivery': id,
-      ...(hmacHex
-        ? {
-            'X-Signature-SHA256': `sha256=${hmacHex}`,
-            'X-JForge-Signature': `t=${unixTs},v1=${hmacHex}`,
-          }
-        : {}),
-    };
-
-    if (dispatchLive && targetUrl) {
-      try {
-        const res = await fetch(targetUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-        });
-        finalStatus = res.status;
-      } catch (_) {
-        finalStatus = 502;
-      }
-      if (finalStatus < 200 || finalStatus >= 300) {
-        payload = { ...payload, status: 'failed' };
-        hmacHex = await computeClientHmacHex(secret, payload);
-        if (hmacHex) {
-          headers['X-Signature-SHA256'] = `sha256=${hmacHex}`;
-          headers['X-JForge-Signature'] = `t=${unixTs},v1=${hmacHex}`;
-        }
-      }
-    }
-
-    const entry = {
-      id,
-      statusCode: finalStatus,
+    const result = await studioDispatchWebhookAction({
+      webhookUrl: webhookEndpointUrl,
       eventType,
-      timestamp,
-      targetUrl,
-      headers,
-      payload,
-    };
+      pythonCode: pySnippet,
+      javaCode: javaSnippet,
+      latencyMs,
+      customSecret: webhookSigningSecret,
+    });
 
+    const entry = result.entry;
     setWebhookDeliveries((prev) => [entry, ...prev]);
     setSelectedWebhookIndex(0);
     return entry;
   };
 
-  // Primary Transpiler Handler (Hits /api/v1/convert with local fallback)
+  // Primary Transpiler Handler (Uses secure Server Action by default, or user-supplied Gateway Key)
   const handleTranspile = async () => {
     const trimmed = pythonCode.trim();
     if (!trimmed) {
@@ -877,48 +795,75 @@ export default function JForgeOrchestrator() {
     let apiErrorMessage = '';
     let serverWebhookDelivery = null;
 
-    try {
-      // 1. Send live POST request to backend API route
-      try {
-        const response = await fetch('/api/v1/convert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': configuredGatewayKey,
-            ...(liveGeminiKey ? { 'x-gemini-api-key': liveGeminiKey } : {}),
-          },
-          body: JSON.stringify({
-            python_code: pythonCode,
-            java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '17',
-            webhook_url: webhookEndpointUrl,
-            gemini_api_key: liveGeminiKey || undefined,
-            bypass_cache: bypassCache,
-          }),
-        });
+    const targetJava = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
+    const customGatewayKey = configuredGatewayKey.trim();
 
-        const resData = await response.json().catch(() => ({}));
-        if (response.ok) {
-          const returnedJava = resData?.data?.java_code || resData?.java_code;
-          if (returnedJava) {
-            javaResult = returnedJava;
-            summaryNote = resData?.summary || `Successfully synthesized via POST /api/v1/convert (${javaTargetVersion}).`;
-            remoteSuccess = true;
-            serverWebhookDelivery = resData?.webhook_delivery || null;
-            const hit = resData?.cache?.hit || false;
-            setIsCacheHit(hit);
-            if (resData?.self_healing) {
-              setSelfHealing(resData.self_healing);
+    try {
+      try {
+        if (customGatewayKey) {
+          const response = await fetch('/api/v1/convert', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': customGatewayKey,
+              ...(liveGeminiKey ? { 'x-gemini-api-key': liveGeminiKey } : {}),
+            },
+            body: JSON.stringify({
+              python_code: pythonCode,
+              java_version: targetJava,
+              webhook_url: webhookEndpointUrl,
+              gemini_api_key: liveGeminiKey || undefined,
+              bypass_cache: bypassCache,
+            }),
+          });
+
+          const resData = await response.json().catch(() => ({}));
+          if (response.ok) {
+            const returnedJava = resData?.data?.java_code || resData?.java_code;
+            if (returnedJava) {
+              javaResult = returnedJava;
+              summaryNote = resData?.summary || `Successfully synthesized via POST /api/v1/convert (${javaTargetVersion}).`;
+              remoteSuccess = true;
+              serverWebhookDelivery = resData?.webhook_delivery || null;
+              setIsCacheHit(resData?.cache?.hit || false);
+              if (resData?.self_healing) setSelfHealing(resData.self_healing);
+              if (resData?.engine) {
+                setActiveEngine(resData.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
+              }
             }
-            if (resData?.engine) {
-              setActiveEngine(resData.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
-            }
+          } else {
+            apiErrorStatus = response.status;
+            apiErrorMessage = resData?.message || `Backend gateway returned HTTP ${response.status}`;
           }
         } else {
-          apiErrorStatus = response.status;
-          apiErrorMessage = resData?.message || `Backend gateway returned HTTP ${response.status}`;
+          const actionRes = await studioTranspileAction({
+            pythonCode,
+            javaVersion: targetJava,
+            webhookUrl: webhookEndpointUrl,
+            clientGeminiKey: liveGeminiKey,
+            bypassCache,
+          });
+
+          if (actionRes?.ok) {
+            const returnedJava = actionRes?.data?.java_code;
+            if (returnedJava) {
+              javaResult = returnedJava;
+              summaryNote = actionRes?.summary || `Successfully synthesized via Server Action (${javaTargetVersion}).`;
+              remoteSuccess = true;
+              serverWebhookDelivery = actionRes?.webhook_delivery || null;
+              setIsCacheHit(actionRes?.cache?.hit || false);
+              if (actionRes?.self_healing) setSelfHealing(actionRes.self_healing);
+              if (actionRes?.engine) {
+                setActiveEngine(actionRes.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
+              }
+            }
+          } else {
+            apiErrorStatus = actionRes?.status || 400;
+            apiErrorMessage = actionRes?.error || `Studio transpilation failed (HTTP ${apiErrorStatus})`;
+          }
         }
-      } catch (networkErr) {
-        // Safe local fallback handles requests only if backend route is unreachable
+      } catch (_networkErr) {
+        // Safe local fallback handles requests only if server is unreachable
       }
 
       if (apiErrorStatus) {
@@ -1044,8 +989,11 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
 
   // Playground Scenarios
   const handleLoadScenario = (scenario) => {
+    const syncValidKey = () => {
+      if (configuredGatewayKey.trim()) setPgApiKey(configuredGatewayKey.trim());
+    };
     if (scenario === 'valid') {
-      setPgApiKey(configuredGatewayKey);
+      syncValidKey();
       setPgRequestBody(
         JSON.stringify(
           {
@@ -1075,7 +1023,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       );
       showToast('Loaded Scenario: 401 Invalid Key');
     } else if (scenario === 'badrequest') {
-      setPgApiKey(configuredGatewayKey);
+      syncValidKey();
       setPgRequestBody(
         JSON.stringify(
           {
@@ -1089,7 +1037,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       );
       showToast('Loaded Scenario: 400 Empty Code');
     } else if (scenario === 'cachehit') {
-      setPgApiKey(configuredGatewayKey);
+      syncValidKey();
       setPgRequestBody(
         JSON.stringify(
           {
@@ -1105,7 +1053,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       );
       showToast('Loaded Scenario: Semantic AST Cache Hit (Sub-5ms)');
     } else if (scenario === 'selfhealing') {
-      setPgApiKey(configuredGatewayKey);
+      syncValidKey();
       setPgRequestBody(
         JSON.stringify(
           {
@@ -1212,78 +1160,24 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
         setIsPgLoading(false);
         return;
       } catch (fetchErr) {
-        // Fallback simulation
-      }
-
-      // Simulation fallback for Playground
-      await new Promise((r) => setTimeout(r, 60));
-      elapsed = Math.floor(Math.random() * 25) + 18;
-      setPgResponseLatency(elapsed);
-
-      if (!pgApiKey || pgApiKey !== configuredGatewayKey) {
-        setPgStatusBadge({ code: 401, text: '401 Unauthorized', color: 'rose' });
+        elapsed = Math.max(1, Math.round(performance.now() - startTime));
+        setPgResponseLatency(elapsed);
+        setPgStatusBadge({ code: 503, text: '503 Unreachable', color: 'rose' });
         setPgResponseHeaders({ 'content-type': 'application/json; charset=utf-8', 'x-webhook-dispatched': 'false' });
         setPgResponseBody(
           JSON.stringify(
             {
-              status: "error",
-              http_code: 401,
-              error: "Unauthorized",
-              message: "Invalid or missing 'x-api-key' request header.",
-              timestamp: "2026-11-15T10:30:00.000Z",
+              status: 'error',
+              http_code: 503,
+              error: 'Service Unreachable',
+              message: fetchErr?.message || 'Unable to reach POST /api/v1/convert.',
             },
             null,
             2
           )
         );
-        showToast('HTTP 401 Unauthorized: API Key rejected');
-        setIsPgLoading(false);
-        return;
+        showToast('Network Error: Could not reach /api/v1/convert');
       }
-
-      if (!parsedBody.python_code || typeof parsedBody.python_code !== 'string' || !parsedBody.python_code.trim()) {
-        setPgStatusBadge({ code: 400, text: '400 Bad Request', color: 'amber' });
-        setPgResponseBody(
-          JSON.stringify(
-            {
-              status: "error",
-              http_code: 400,
-              error: "Bad Request",
-              message: "Field 'python_code' is required and must be a non-empty string.",
-              timestamp: "2026-11-15T10:30:00.000Z",
-            },
-            null,
-            2
-          )
-        );
-        showToast('HTTP 400 Bad Request: Empty python_code');
-        setIsPgLoading(false);
-        return;
-      }
-
-      setPgStatusBadge({ code: 200, text: '200 OK', color: 'emerald' });
-      const responsePayload = {
-        status: "success",
-        http_code: 200,
-        event: "code.conversion.completed",
-        timestamp: "2026-11-15T10:30:00.000Z",
-        data: {
-          source_language: "python",
-          target_language: "java",
-          java_version: parsedBody.java_version || "17",
-          execution_time_ms: elapsed,
-          java_code: "public class Solution {\n    // Transpiled via J-Forge REST Gateway\n}",
-        },
-        webhook_delivery: {
-          dispatched: Boolean(parsedBody.webhook_url),
-          target_url: parsedBody.webhook_url || null,
-          status_code: 200,
-        },
-      };
-
-      setPgResponseBody(JSON.stringify(responsePayload, null, 2));
-      await recordWebhookDelivery('code.conversion.completed', 200, parsedBody.python_code, responsePayload.data.java_code, elapsed);
-      showToast('HTTP 200 OK: Conversion & Webhook complete');
     } finally {
       setIsPgLoading(false);
     }
@@ -1293,7 +1187,8 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
     const clean = (pgRequestBody || '').replace(/\n/g, ' ');
     const origin =
       typeof window !== 'undefined' ? window.location.origin : 'https://py2java-transpiler.vercel.app';
-    return `curl -X POST ${origin}/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${pgApiKey}" \\\n  -d '${clean}'`;
+    const displayKey = pgApiKey || '<YOUR_APP_API_KEY>';
+    return `curl -X POST ${origin}/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${displayKey}" \\\n  -d '${clean}'`;
   }, [pgApiKey, pgRequestBody]);
 
   // Webhook actions
@@ -1305,9 +1200,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       200,
       'replayed',
       orig.payload?.data?.java_preview || '',
-      22,
-      null,
-      true
+      22
     );
     showToast(`Replayed webhook ${orig.id} (HTTP ${entry.statusCode})`);
   };
@@ -1321,9 +1214,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
   // Engine Modal
   const handleSaveEngineConfig = () => {
     setLiveGeminiKey(tempGeminiKey.trim());
-    const validKey = tempGatewayKey.trim() || 'ciap-secret-key-2026';
+    const validKey = tempGatewayKey.trim();
     setConfiguredGatewayKey(validKey);
-    setPgApiKey(validKey);
+    if (validKey) setPgApiKey(validKey);
     setEngineModalOpen(false);
     showToast('Engine & Gateway configuration saved');
   };
@@ -1417,7 +1310,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               selectedWebhookIndex={selectedWebhookIndex}
               setSelectedWebhookIndex={setSelectedWebhookIndex}
               onTriggerManualWebhook={async () => {
-                const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31, null, true);
+                const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31, null);
                 showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP ${entry.statusCode})`);
               }}
               onClearLogs={handleClearWebhookLogs}
@@ -1472,12 +1365,13 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
 
               <div>
                 <label className="block font-mono font-semibold mb-1">
-                  Authorized Gateway Key (<code className="font-mono">x-api-key</code>)
+                  Authorized Gateway Key (<code className="font-mono">x-api-key</code>, Optional)
                 </label>
                 <input
-                  type="text"
+                  type="password"
                   value={tempGatewayKey}
                   onChange={(e) => setTempGatewayKey(e.target.value)}
+                  placeholder="Optional (leave blank for built-in Studio mode)"
                   className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none"
                 />
               </div>

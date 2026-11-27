@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import ASTDiffViewer from '../../components/ASTDiffViewer.jsx';
+import { studioAstDiffAction } from '../actions.js';
 
 const SAMPLE_PRESETS = {
   fastapi: {
@@ -76,56 +77,17 @@ export default function ASTDiffPage() {
 
     setIsLoading(true);
     setErrorMessage('');
-    setStatusMessage('Step 1/2: Synthesizing Java code via Gemini 2.5 Flash API...');
+    setStatusMessage('Analyzing Python syntax, synthesizing Java 17 LTS & aligning AST nodes...');
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026';
-
-      // 1. Call POST /api/v1/convert to get transpiled Java code
-      const convertRes = await fetch('/api/v1/convert', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          python_code: codeToAnalyze,
-          java_version: '17',
-          bypass_cache: false,
-        }),
-      });
-
-      if (!convertRes.ok) {
-        const errJson = await convertRes.json().catch(() => ({}));
-        throw new Error(errJson.message || `Transpilation failed with HTTP ${convertRes.status}`);
+      const result = await studioAstDiffAction({ pythonCode: codeToAnalyze });
+      if (!result?.ok) {
+        throw new Error(result?.error || 'AST differential analysis failed.');
       }
 
-      const convertData = await convertRes.json();
-      const synthesizedJava = convertData?.data?.java_code || '';
-      setJavaCode(synthesizedJava);
-
-      // 2. Call POST /api/v1/ast-diff with both Python and Java source codes
-      setStatusMessage('Step 2/2: Parsing cross-language AST & computing alignments...');
-      const diffRes = await fetch('/api/v1/ast-diff', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          python_code: codeToAnalyze,
-          java_code: synthesizedJava,
-        }),
-      });
-
-      if (!diffRes.ok) {
-        const diffErr = await diffRes.json().catch(() => ({}));
-        throw new Error(diffErr.message || `AST Diff failed with HTTP ${diffRes.status}`);
-      }
-
-      const diffData = await diffRes.json();
-      setAlignmentPairs(diffData.alignment_pairs || []);
-      setStats(diffData.summary || null);
+      setJavaCode(result.java_code || '');
+      setAlignmentPairs(result.alignment_pairs || []);
+      setStats(result.summary || null);
       setStatusMessage('');
     } catch (err) {
       setErrorMessage(err.message || 'An unexpected error occurred during AST differential analysis.');

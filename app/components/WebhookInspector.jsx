@@ -45,7 +45,7 @@ export default function WebhookInspector({
         selectedWebhook.headers?.['X-Signature-SHA256'] ||
         selectedWebhook.headers?.['X-JForge-Signature'] ||
         '';
-      const secret = webhookSigningSecret || 'whsec_btin337_ciap_99481a';
+      const customSecret = webhookSigningSecret.trim();
 
       const res = await fetch('/api/v1/webhook-verify', {
         method: 'POST',
@@ -53,7 +53,7 @@ export default function WebhookInspector({
         body: JSON.stringify({
           payload: payloadToTest,
           signature: rawSig,
-          secret: secret,
+          ...(customSecret ? { secret: customSecret } : {}),
         }),
       });
 
@@ -120,12 +120,13 @@ export default function WebhookInspector({
           </div>
           <div>
             <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>
-              Signing Secret (HMAC-SHA256)
+              Signing Secret (Optional Custom Override)
             </label>
             <input
-              type="text"
+              type="password"
               value={webhookSigningSecret}
               onChange={(e) => setWebhookSigningSecret(e.target.value)}
+              placeholder="Leave blank to sign & verify via server WEBHOOK_SECRET"
               className="w-full px-3 py-2 t-surface text-xs focus:outline-none"
             />
           </div>

@@ -3,6 +3,7 @@ import { validateApiKey } from '../../../../lib/auth.js';
 import { checkRateLimit } from '../../../../lib/rate-limit.js';
 import { parsePython, parseJava } from '../../../../lib/ast-parser.js';
 import { alignNodes } from '../../../../lib/ast-aligner.js';
+import { MAX_CODE_CHARS, validateCodePayload } from '../../../../lib/security.js';
 
 /**
  * POST /api/v1/ast-diff
@@ -44,30 +45,32 @@ export async function POST(request) {
 
   const { python_code, java_code } = body || {};
 
-  // 4. Validate presence of code inputs
-  if (!python_code || typeof python_code !== 'string' || !python_code.trim()) {
+  // 4. Validate presence and bounded size of code inputs
+  const pyValidation = validateCodePayload(python_code, 'python_code', MAX_CODE_CHARS);
+  if (!pyValidation.valid) {
     return NextResponse.json(
       {
         status: 'error',
-        http_code: 400,
-        error: 'Bad Request',
-        message: "Field 'python_code' is required and must be a non-empty string.",
+        http_code: pyValidation.status,
+        error: pyValidation.status === 413 ? 'Payload Too Large' : 'Bad Request',
+        message: pyValidation.error,
         timestamp: new Date().toISOString(),
       },
-      { status: 400 }
+      { status: pyValidation.status }
     );
   }
 
-  if (!java_code || typeof java_code !== 'string' || !java_code.trim()) {
+  const javaValidation = validateCodePayload(java_code, 'java_code', MAX_CODE_CHARS);
+  if (!javaValidation.valid) {
     return NextResponse.json(
       {
         status: 'error',
-        http_code: 400,
-        error: 'Bad Request',
-        message: "Field 'java_code' is required and must be a non-empty string.",
+        http_code: javaValidation.status,
+        error: javaValidation.status === 413 ? 'Payload Too Large' : 'Bad Request',
+        message: javaValidation.error,
         timestamp: new Date().toISOString(),
       },
-      { status: 400 }
+      { status: javaValidation.status }
     );
   }
 
@@ -108,13 +111,13 @@ export async function POST(request) {
         },
       }
     );
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       {
         status: 'error',
         http_code: 500,
         error: 'Internal Server Error',
-        message: error.message || 'AST differential engine encountered an unexpected error.',
+        message: 'AST differential engine encountered an unexpected internal error.',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

@@ -112,6 +112,7 @@ public class Solution {
 });
 
 test('Self-Healing: POST /api/v1/convert returns self_healing contract and HTTP response headers', async () => {
+  process.env.APP_API_KEY = 'ciap-secret-key-2026';
   const req = new Request('http://localhost:3000/api/v1/convert', {
     method: 'POST',
     headers: {

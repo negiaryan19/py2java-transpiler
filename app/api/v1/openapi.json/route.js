@@ -77,6 +77,7 @@ export async function GET() {
             },
             '400': { description: 'Malformed JSON or missing python_code' },
             '401': { description: 'Missing or invalid authentication credentials' },
+            '413': { description: 'Source payload exceeds 25000 character limit' },
             '429': { description: 'Rate limit exceeded (60 req/min)' },
             '500': { description: 'Internal compilation or timeout exception' },
           },

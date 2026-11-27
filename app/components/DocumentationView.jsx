@@ -21,10 +21,10 @@ export default function DocumentationView({
 GEMINI_API_KEY="AIzaSy_YOUR_GOOGLE_AI_STUDIO_KEY"
 
 # 2. External Client Authentication Key (Header: x-api-key)
-APP_API_KEY="ciap-secret-key-2026"
+APP_API_KEY="REPLACE_WITH_YOUR_GENERATED_APP_API_KEY"
 
 # 3. Webhook Signing Secret & Default Receiver
-WEBHOOK_SECRET="whsec_btin337_ciap_99481a"
+WEBHOOK_SECRET="REPLACE_WITH_YOUR_GENERATED_WEBHOOK_SECRET"
 DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
 
   return (

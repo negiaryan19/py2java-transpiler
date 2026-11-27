@@ -133,11 +133,11 @@ export default function ApiPlayground({
               <div className="px-3 py-2 t-subtle font-semibold">x-api-key</div>
               <div className="sm:col-span-2">
                 <input
-                  type="text"
+                  type="password"
                   value={pgApiKey}
                   onChange={(e) => setPgApiKey(e.target.value)}
                   className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none"
-                  placeholder="Enter x-api-key header..."
+                  placeholder="Enter your APP_API_KEY (empty tests 401)..."
                 />
               </div>
             </div>

@@ -6,6 +6,7 @@ import { checkRateLimit } from '../../../../lib/rate-limit.js';
 import { astCache } from '../../../../lib/cache.js';
 import { healJavaCode } from '../../../../lib/self-healing.js';
 import { metrics } from '../../../../lib/metrics.js';
+import { MAX_CODE_CHARS, normalizeJavaVersion, validateCodePayload } from '../../../../lib/security.js';
 
 /**
  * POST /api/v1/convert
@@ -59,25 +60,62 @@ export async function POST(request) {
   const headerBypass = request.headers.get('x-bypass-cache') === 'true';
   const shouldBypassCache = bypass_cache || headerBypass;
   const headerGeminiKey = request.headers.get('x-gemini-api-key');
-  const activeGeminiKey = gemini_api_key || headerGeminiKey;
+  const rawOverrideKey = gemini_api_key || headerGeminiKey;
+  const activeGeminiKey =
+    typeof rawOverrideKey === 'string' && rawOverrideKey.trim().length > 0 && rawOverrideKey.trim().length <= 120
+      ? rawOverrideKey.trim()
+      : null;
 
-  // 4. Validation: python_code is required and must not be empty
-  if (!python_code || typeof python_code !== 'string' || !python_code.trim()) {
+  // Reject arbitrary relative paths (allow ONLY built-in '/api/v1/webhook-demo' as a relative path)
+  const rawWebhookUrl = typeof webhook_url === 'string' ? webhook_url.trim() : '';
+  if (rawWebhookUrl.startsWith('/') && rawWebhookUrl !== '/api/v1/webhook-demo') {
     metrics.incTranspile(400);
     return NextResponse.json(
       {
         status: 'error',
         http_code: 400,
         error: 'Bad Request',
-        message: "Field 'python_code' is required and must be a non-empty string.",
+        message: "Relative 'webhook_url' is restricted strictly to '/api/v1/webhook-demo'. Provide a full HTTPS URL for external webhooks.",
         timestamp: new Date().toISOString(),
       },
       { status: 400 }
     );
   }
 
+  // 4. Validation: python_code size/content and strict java_version allowlist
+  const codeValidation = validateCodePayload(python_code, 'python_code', MAX_CODE_CHARS);
+  if (!codeValidation.valid) {
+    metrics.incTranspile(codeValidation.status);
+    return NextResponse.json(
+      {
+        status: 'error',
+        http_code: codeValidation.status,
+        error: codeValidation.status === 413 ? 'Payload Too Large' : 'Bad Request',
+        message: codeValidation.error,
+        timestamp: new Date().toISOString(),
+      },
+      { status: codeValidation.status }
+    );
+  }
+
+  const versionCheck = normalizeJavaVersion(java_version);
+  if (!versionCheck.valid) {
+    metrics.incTranspile(400);
+    return NextResponse.json(
+      {
+        status: 'error',
+        http_code: 400,
+        error: 'Bad Request',
+        message: versionCheck.error,
+        timestamp: new Date().toISOString(),
+      },
+      { status: 400 }
+    );
+  }
+  const safeJavaVersion = versionCheck.value;
+
   // 5. Semantic AST Hash Cache Lookup (Sub-5ms response on identical code)
-  const cacheKey = astCache.computeKey(python_code, java_version);
+  const cacheKey = astCache.computeKey(python_code, safeJavaVersion);
   const cachedHit = !shouldBypassCache ? astCache.get(cacheKey) : null;
 
   try {
@@ -141,20 +179,20 @@ export async function POST(request) {
 
     // 6. Asynchronous Webhook Dispatch
     let webhookReport = null;
-    const rawWebhookUrl = typeof webhook_url === 'string' ? webhook_url.trim() : '';
     if (rawWebhookUrl) {
       const resolvedWebhookUrl =
-        rawWebhookUrl.startsWith('/') && request?.url
-          ? new URL(rawWebhookUrl, request.url).toString()
+        rawWebhookUrl === '/api/v1/webhook-demo' && request?.url
+          ? new URL('/api/v1/webhook-demo', request.url).toString()
           : rawWebhookUrl;
 
       webhookReport = await dispatchWebhook({
         webhookUrl: resolvedWebhookUrl,
+        allowLocalDemo: rawWebhookUrl === '/api/v1/webhook-demo',
         payload: {
           data: {
             source_language: 'python',
             target_language: 'java',
-            java_version,
+            java_version: safeJavaVersion,
             execution_time_ms: executionTimeMs,
             python_lines: (python_code.match(/\n/g) || []).length + 1,
             java_preview: javaCode.split('\n').slice(0, 6).join('\n') + '\n// ...',
@@ -200,7 +238,7 @@ export async function POST(request) {
         data: {
           source_language: 'python',
           target_language: 'java',
-          java_version,
+          java_version: safeJavaVersion,
           execution_time_ms: executionTimeMs,
           java_code: javaCode,
         },
@@ -237,7 +275,7 @@ export async function POST(request) {
         status: 'error',
         http_code: 500,
         error: 'Internal Server Error',
-        message: error.message || 'Transpilation pipeline encountered an unexpected error.',
+        message: 'Transpilation pipeline encountered an unexpected internal error.',
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

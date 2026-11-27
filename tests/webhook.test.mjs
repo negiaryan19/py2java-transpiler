@@ -18,6 +18,7 @@ test('Webhook Dispatcher: Computes valid HMAC SHA-256 signature and passes verif
   try {
     const report = await dispatchWebhook({
       webhookUrl: 'http://localhost:3000/api/v1/webhook-demo',
+      allowLocalDemo: true,
       payload: { event: 'code.conversion.completed', test: true },
       signingSecret: secret,
     });
@@ -79,6 +80,7 @@ test('Webhook Dispatcher: Fails gracefully without throwing on invalid URL', asy
 
 test('Convert Route: Dispatches relative webhook_url and returns verifiable HMAC headers', async () => {
   process.env.APP_API_KEY = 'ciap-secret-key-2026';
+  process.env.WEBHOOK_SECRET = 'whsec_test_server_secret_99481a';
   const origGeminiKey = process.env.GEMINI_API_KEY;
   delete process.env.GEMINI_API_KEY;
   const origFetch = globalThis.fetch;

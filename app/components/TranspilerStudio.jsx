@@ -23,6 +23,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
+import { studioExplainAction } from '../actions.js';
 
 export default function TranspilerStudio({
   pythonCode,
@@ -47,7 +48,7 @@ export default function TranspilerStudio({
   setBypassCache = () => {},
   isCacheHit = false,
   selfHealing = null,
-  gatewayApiKey = process.env.NEXT_PUBLIC_APP_API_KEY || 'ciap-secret-key-2026',
+  gatewayApiKey = '',
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -132,20 +133,32 @@ export default function TranspilerStudio({
   const fetchDiagnostics = async () => {
     setIsAnalyzingDiagnostics(true);
     try {
-      const res = await fetch('/api/v1/explain', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': gatewayApiKey,
-        },
-        body: JSON.stringify({
-          python_code: pythonCode,
-          java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '17',
-        }),
+      const targetJava = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
+      if (gatewayApiKey && gatewayApiKey.trim()) {
+        const res = await fetch('/api/v1/explain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': gatewayApiKey.trim(),
+          },
+          body: JSON.stringify({
+            python_code: pythonCode,
+            java_version: targetJava,
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setDiagnostics(json.data);
+          return;
+        }
+      }
+
+      const actionRes = await studioExplainAction({
+        pythonCode,
+        javaVersion: targetJava,
       });
-      if (res.ok) {
-        const json = await res.json();
-        setDiagnostics(json.data);
+      if (actionRes?.ok) {
+        setDiagnostics(actionRes.data);
       }
     } catch (_) {
       // Handled gracefully
