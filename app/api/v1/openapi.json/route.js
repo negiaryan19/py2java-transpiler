@@ -186,7 +186,7 @@ export async function GET() {
       '/api/v1/ast-diff': {
         post: {
           summary: 'Cross-Language AST Alignment & Syntax Mapping Inspector',
-          description: 'Parses Python 3.11 and Java 17 ASTs using tree-sitter and returns aligned semantic nodes with type explanations.',
+          description: 'Parses Python 3 and Java ASTs using tree-sitter and returns aligned semantic nodes with type explanations.',
           security: [{ ApiKeyAuth: [] }, { BearerAuth: [] }],
           requestBody: {
             required: true,
@@ -207,6 +207,203 @@ export async function GET() {
             '200': { description: 'AST alignment pairs and normalized semantic nodes computed' },
             '400': { description: 'Missing required code inputs' },
             '401': { description: 'Unauthorized' },
+          },
+        },
+      },
+      '/api/v1/analyze': {
+        post: {
+          summary: 'Python Compatibility, Dependency & Code Quality Scanner',
+          description: 'Deterministically inspects Python constructs, external packages, Java equivalents, and static AST node summaries.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    java_code: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Compatibility, dependencies, quality, and AST summary returned' },
+            '400': { description: 'Invalid payload' },
+            '429': { description: 'Rate limit exceeded (30/min)' },
+          },
+        },
+      },
+      '/api/v1/verify': {
+        post: {
+          summary: 'Semantic Verification Engine (CPython vs OpenJDK 21)',
+          description: 'Compiles and executes Python 3.13 and OpenJDK 21 in isolated sandboxes and compares normalized stdout parity across stdin cases.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code', 'java_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    java_code: { type: 'string' },
+                    stdin: { type: 'string' },
+                    test_cases: { type: 'array', items: { type: 'object' } },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Verification report with stdout parity status returned' },
+            '400': { description: 'Invalid code payload' },
+            '429': { description: 'Rate limit exceeded (12/min)' },
+          },
+        },
+      },
+      '/api/v1/repair': {
+        post: {
+          summary: 'Bounded Self-Healing javac Compiler & Parity Repair Loop',
+          description: 'Runs deterministic javac diagnostic repairs plus AI-assisted repair iterations (max 3 iterations).',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code', 'java_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    java_code: { type: 'string' },
+                    compiler_error: { type: 'string' },
+                    mismatch_note: { type: 'string' },
+                    stdin: { type: 'string' },
+                    java_version: { type: 'string', enum: ['11', '17', '21'], default: '17' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Repaired Java source and verification outcome returned' },
+            '400': { description: 'Invalid input' },
+            '429': { description: 'Rate limit exceeded (8/min)' },
+          },
+        },
+      },
+      '/api/v1/run-python': {
+        post: {
+          summary: 'Isolated Python 3.13 Sandbox Execution',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['python_code'],
+                  properties: {
+                    python_code: { type: 'string' },
+                    stdin: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'CPython execution stdout/stderr/exitCode returned' },
+            '429': { description: 'Rate limit exceeded (15/min)' },
+          },
+        },
+      },
+      '/api/v1/run-java': {
+        post: {
+          summary: 'Isolated OpenJDK 21 Compilation & Execution',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['java_code'],
+                  properties: {
+                    java_code: { type: 'string' },
+                    stdin: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'OpenJDK compilation and execution result returned' },
+            '429': { description: 'Rate limit exceeded (15/min)' },
+          },
+        },
+      },
+      '/api/v1/intelligence': {
+        post: {
+          summary: 'Contextual Code Intelligence (Review, Optimizer, Debugger, Javadoc, Q&A)',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['action', 'python_code'],
+                  properties: {
+                    action: { type: 'string' },
+                    python_code: { type: 'string' },
+                    java_code: { type: 'string' },
+                    java_version: { type: 'string', default: '17' },
+                    question: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Contextual analysis response returned' },
+            '400': { description: 'Invalid action or payload' },
+            '429': { description: 'Rate limit exceeded (20/min)' },
+          },
+        },
+      },
+      '/api/v1/projects/migrate': {
+        post: {
+          summary: 'Multi-File Python-to-Maven Project Migration Engine',
+          description: 'Sanitizes up to 15 relative file paths, maps internal imports and entrypoints, flags manual interventions, and outputs Maven pom.xml + Java source files.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['files'],
+                  properties: {
+                    java_version: { type: 'string', enum: ['11', '17', '21'], default: '21' },
+                    files: {
+                      type: 'array',
+                      maxItems: 15,
+                      items: {
+                        type: 'object',
+                        required: ['path', 'content'],
+                        properties: {
+                          path: { type: 'string' },
+                          content: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Migration plan, module graph, pom.xml, and generated Java files returned' },
+            '400': { description: 'Invalid path, traversal attempt, or oversized file count' },
+            '429': { description: 'Rate limit exceeded (10/min)' },
           },
         },
       },

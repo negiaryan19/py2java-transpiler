@@ -25,6 +25,7 @@ export async function GET() {
       pythonCode: r.python_code,
       javaCode: r.java_code,
       javaTargetVersion: r.java_version,
+      verifiedStatus: r.verified_status || null,
       time: new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     }));
     return Response.json({ ok: true, items }, { status: 200 });
@@ -49,7 +50,7 @@ export async function POST(request) {
     return Response.json({ ok: false, error: 'Invalid JSON.' }, { status: 400 });
   }
 
-  const { label, pythonCode, javaCode, javaTargetVersion } = body || {};
+  const { label, pythonCode, javaCode, javaTargetVersion, verifiedStatus } = body || {};
   if (typeof pythonCode !== 'string' || typeof javaCode !== 'string' || !pythonCode.trim() || !javaCode.trim()) {
     return Response.json({ ok: false, error: 'pythonCode and javaCode are required.' }, { status: 400 });
   }
@@ -64,6 +65,7 @@ export async function POST(request) {
       pythonCode,
       javaCode,
       javaVersion: typeof javaTargetVersion === 'string' ? javaTargetVersion : 'Java 17 LTS',
+      verifiedStatus: typeof verifiedStatus === 'string' ? verifiedStatus : null,
     });
     return Response.json({ ok: true, id: row.id }, { status: 200 });
   } catch {

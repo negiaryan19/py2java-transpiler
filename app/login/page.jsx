@@ -42,12 +42,13 @@ export default function LoginPage() {
   const [returnTo, setReturnTo] = useState('/');
   const [dbConfigured, setDbConfigured] = useState(true);
   const [oauthConfigured, setOauthConfigured] = useState(false);
+  const [emailResetConfigured, setEmailResetConfigured] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [theme, setTheme] = useState('dark');
-  const [accent, setAccent] = useState('violet');
+  const [accent, setAccent] = useState('orange');
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
@@ -97,7 +98,7 @@ export default function LoginPage() {
           const savedTheme = localStorage.getItem('jforge_theme');
           if (savedTheme && ['dark', 'light'].includes(savedTheme)) setTheme(savedTheme);
           const savedAccent = localStorage.getItem('jforge_accent');
-          if (savedAccent && ['violet', 'emerald', 'sky', 'amber', 'rose'].includes(savedAccent)) {
+          if (savedAccent && ['orange', 'violet', 'emerald', 'sky', 'rose'].includes(savedAccent)) {
             setAccent(savedAccent);
           }
         } catch {
@@ -107,6 +108,7 @@ export default function LoginPage() {
         if (authErr) setError(`Sign-in did not complete (${authErr}).`);
         setDbConfigured(s?.dbConfigured !== false);
         setOauthConfigured(Boolean(s?.oauthConfigured));
+        setEmailResetConfigured(Boolean(s?.emailResetConfigured));
         if (s?.authenticated) {
           router.replace(nextPath);
         }
@@ -153,6 +155,14 @@ export default function LoginPage() {
           ? `Welcome to J-Forge, ${data.user?.name || 'Developer'}!`
           : `Welcome back, ${data.user?.name || 'Developer'}!`
       );
+      try {
+        localStorage.setItem('jforge_auth_sync_event', `login_${Date.now()}`);
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('jforge_auth_sync');
+          bc.postMessage({ type: 'login', ts: Date.now() });
+          bc.close();
+        }
+      } catch {}
 
       setTimeout(() => {
         router.replace(returnTo);
@@ -217,8 +227,8 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Real Google OAuth (Rendered only when GOOGLE_CLIENT_ID & SECRET are configured) */}
-        {oauthConfigured && (
+        {/* Real Google OAuth (Enabled ONLY when GOOGLE_CLIENT_ID & SECRET are configured) */}
+        {oauthConfigured ? (
           <div className="space-y-3">
             <a
               href={`/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`}
@@ -237,6 +247,10 @@ export default function LoginPage() {
               <span>or</span>
               <div className="flex-1 t-border-t" />
             </div>
+          </div>
+        ) : (
+          <div className="p-2.5 rounded t-subtle text-[11px] font-mono opacity-65 text-center" aria-disabled="true">
+            Google OAuth disabled (missing server OAuth credentials)
           </div>
         )}
 
@@ -320,13 +334,19 @@ export default function LoginPage() {
             </div>
             {mode === 'login' && (
               <div className="flex justify-end mt-1.5">
-                <button
-                  type="button"
-                  onClick={() => { setForgotOpen((v) => !v); setError(''); setSuccess(''); }}
-                  className="text-[11px] font-mono text-indigo-400 hover:underline cursor-pointer"
-                >
-                  {forgotOpen ? 'Back to Sign In' : 'Forgot password?'}
-                </button>
+                {emailResetConfigured ? (
+                  <button
+                    type="button"
+                    onClick={() => { setForgotOpen((v) => !v); setError(''); setSuccess(''); }}
+                    className="text-[11px] font-mono text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    {forgotOpen ? 'Back to Sign In' : 'Forgot password?'}
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-mono opacity-55" title="Requires RESEND_API_KEY">
+                    Password reset email unavailable in this env
+                  </span>
+                )}
               </div>
             )}
           </div>

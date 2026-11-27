@@ -20,9 +20,11 @@ export async function GET() {
     {
       authenticated: Boolean(session),
       oauthConfigured: isGoogleOAuthConfigured(),
+      emailResetConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
       dbConfigured: await isDatabaseConfigured(),
       user: session
         ? {
+            id: session.sub,
             sub: session.sub,
             email: session.email,
             name: session.name,

@@ -40,6 +40,7 @@ import {
   Bookmark,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
+import { PythonLogo, JavaLogo } from './LanguageLogos';
 import { generateJUnitTestSuite } from '../../lib/junit-generator';
 import { buildJavaProjectFiles, buildZipBytes } from '../../lib/zip-export';
 import {
@@ -371,9 +372,9 @@ export default function TranspilerStudio({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'to-oop',
-          python_code: sel,
-          java_code: `// Standalone fragment requested for:\n// ${sel.split('\n')[0]}`,
+          action: 'convert-selection',
+          python_code: pythonCode,
+          java_code: javaCode || `// Selection target:\n// ${sel.split('\n')[0]}`,
           selected_code: sel,
           java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '21',
         }),
@@ -708,6 +709,20 @@ export default function TranspilerStudio({
 
         <div className="flex items-center gap-1.5 text-xs font-mono">
           <button
+            onClick={() => {
+              setDrawerCollapsed(false);
+              setDrawerTab((prev) => (prev === 'ast' ? 'console' : 'ast'));
+            }}
+            className={`px-2.5 py-1 text-xs flex items-center gap-1.5 cursor-pointer ${
+              drawerTab === 'ast' && !drawerCollapsed ? 't-btn-primary' : 't-btn-secondary'
+            }`}
+            title="Toggle inline AST Diff & Source Mapping"
+          >
+            <GitCompare className="w-3.5 h-3.5" />
+            <span>AST Diff</span>
+          </button>
+
+          <button
             onClick={() => setConfigOpen((v) => !v)}
             className={`px-2.5 py-1 text-xs flex items-center gap-1.5 cursor-pointer ${
               configOpen ? 't-btn-primary' : 't-btn-secondary'
@@ -871,12 +886,20 @@ export default function TranspilerStudio({
             </span>
             <div className="flex items-center gap-1.5">
               {selectionJavaResult.javaFragment && (
-                <button
-                  onClick={() => copyToClipboard(selectionJavaResult.javaFragment, 'sel-java', 'Selection output copied')}
-                  className="t-btn-secondary px-2 py-0.5 text-[11px] cursor-pointer"
-                >
-                  Copy Output
-                </button>
+                <>
+                  <button
+                    onClick={() => onApplyJavaEdit(selectionJavaResult.javaFragment)}
+                    className="t-btn-primary px-2 py-0.5 text-[11px] cursor-pointer"
+                  >
+                    Apply to Java
+                  </button>
+                  <button
+                    onClick={() => copyToClipboard(selectionJavaResult.javaFragment, 'sel-java', 'Selection output copied')}
+                    className="t-btn-secondary px-2 py-0.5 text-[11px] cursor-pointer"
+                  >
+                    Copy Output
+                  </button>
+                </>
               )}
               <button onClick={() => setSelectionJavaResult(null)} className="p-1 opacity-60 hover:opacity-100 cursor-pointer">
                 <X className="w-3.5 h-3.5" />
@@ -930,10 +953,10 @@ export default function TranspilerStudio({
             if (file) await loadPythonFileObject(file);
           }}
         >
-          {/* Pane Header */}
-          <div className="px-3 py-2 t-border-b flex items-center justify-between gap-2 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+          {/* Pane Header matching Image 2 (Python SVG + Cyan Top Line) */}
+          <div className="px-3 py-2 t-border-b border-t-2 border-t-sky-400 flex items-center justify-between gap-2 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span>
+              <PythonLogo className="w-4 h-4 shrink-0" />
               <span className="font-semibold truncate">main.py</span>
               {selectedPython.trim() && (
                 <button
@@ -1120,9 +1143,9 @@ export default function TranspilerStudio({
           className={`flex flex-col min-w-0 h-full ${mobilePane === 'python' ? 'hidden lg:flex' : 'flex'}`}
           style={{ width: undefined, flexBasis: `${100 - splitPercent}%`, flexGrow: 1 }}
         >
-          <div className="px-3 py-2 t-border-b flex items-center justify-between gap-2 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+          <div className="px-3 py-2 t-border-b border-t-2 border-t-orange-500 flex items-center justify-between gap-2 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+              <JavaLogo className="w-4 h-4 shrink-0" />
               <span className="font-semibold truncate">{className}.java</span>
               {hoveredPyLine && astLineMap.pyToJava[hoveredPyLine] && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded t-surface text-indigo-400">
@@ -1402,13 +1425,16 @@ export default function TranspilerStudio({
         </div>
       )}
 
-      {/* Resizable & Collapsible 9-Tab Bottom Developer Console Panel */}
+      {/* Semantic Verification Engine & Developer Console Panel (Image 2 Style) */}
       <div className="t-surface overflow-hidden flex flex-col">
         <div
           className="px-3 py-1.5 t-border-b flex flex-wrap items-center justify-between gap-2"
           style={{ backgroundColor: 'var(--bg-subtle)' }}
         >
           <div className="flex flex-wrap items-center gap-1 text-xs font-mono">
+            <span className="text-[11px] font-bold tracking-tight pr-2 mr-1 t-border-r hidden xl:inline" style={{ color: 'var(--text-secondary)' }}>
+              Semantic Verification Engine
+            </span>
             {[
               { id: 'console', label: 'Console' },
               { id: 'problems', label: `Problems`, count: errorCount + warningCount },
@@ -1500,8 +1526,8 @@ export default function TranspilerStudio({
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="opacity-75">Python output ({pythonRunResult?.runtime || 'CPython 3.13'})</span>
                       {(pythonRunResult || verificationReport?.python) && (
-                        <span className="opacity-70">
-                          Exit {(pythonRunResult || verificationReport?.python).exitCode} · {(pythonRunResult || verificationReport?.python).executionTimeMs}ms
+                        <span className="opacity-70" title="Remote Wandbox sandbox round-trip time">
+                          Exit {(pythonRunResult || verificationReport?.python).exitCode} · {(pythonRunResult || verificationReport?.python).executionTimeMs}ms RTT
                         </span>
                       )}
                     </div>
@@ -1519,8 +1545,8 @@ export default function TranspilerStudio({
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="opacity-75">Java output ({javaRunResult?.compiler || 'OpenJDK 21'})</span>
                       {(javaRunResult || verificationReport?.java) && (
-                        <span className="opacity-70">
-                          Exit {(javaRunResult || verificationReport?.java).exitCode} · {(javaRunResult || verificationReport?.java).executionTimeMs}ms
+                        <span className="opacity-70" title="Remote OpenJDK compile + execute round-trip time">
+                          Exit {(javaRunResult || verificationReport?.java).exitCode} · {(javaRunResult || verificationReport?.java).executionTimeMs}ms RTT
                         </span>
                       )}
                     </div>
@@ -1636,19 +1662,28 @@ export default function TranspilerStudio({
                       <span><strong>Verdict:</strong> {verificationReport.summary}</span>
                       <span className="font-bold">{verificationReport.passedCases}/{verificationReport.totalCases} Passed</span>
                     </div>
-                    {Array.isArray(verificationReport.cases) &&
-                      verificationReport.cases.map((c, idx) => (
-                        <div key={idx} className="p-2 rounded t-surface grid grid-cols-1 md:grid-cols-3 gap-2">
-                          <div><strong>{c.name}</strong> {c.stdin ? `(stdin: ${JSON.stringify(c.stdin)})` : ''}</div>
-                          <div>Py: {c.pythonStdout || '(empty)'}</div>
-                          <div className="flex items-center justify-between">
-                            <span>Java: {c.javaStdout || c.compilerError || '(empty)'}</span>
-                            <span className={c.matched ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                              {c.matched ? 'PASS' : 'DIFF'}
+                    {Array.isArray(verificationReport.cases) && verificationReport.cases.length > 0 && (
+                      <div className="t-surface overflow-hidden">
+                        <div className="grid grid-cols-12 px-2.5 py-1.5 text-[10px] uppercase opacity-60 t-border-b" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+                          <span className="col-span-3">Boundary Test Case</span>
+                          <span className="col-span-4">Python stdout</span>
+                          <span className="col-span-4">Java stdout</span>
+                          <span className="col-span-1 text-right">Status</span>
+                        </div>
+                        {verificationReport.cases.map((c, idx) => (
+                          <div key={idx} className="grid grid-cols-12 items-center px-2.5 py-2 t-border-b last:border-b-0 gap-2">
+                            <span className="col-span-3 font-semibold truncate" title={c.stdin ? `stdin: ${c.stdin}` : ''}>{c.name}</span>
+                            <span className="col-span-4 truncate">{c.pythonStdout || '(empty)'}</span>
+                            <span className="col-span-4 truncate">{c.javaStdout || c.compilerError || '(empty)'}</span>
+                            <span className="col-span-1 text-right">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.matched ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                                {c.matched ? 'PASS' : 'DIFF'}
+                              </span>
                             </span>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    )}
                     <div className="p-2 rounded border border-amber-500/25 bg-amber-500/5 opacity-85">
                       Limitations: Verification checks tested inputs inside isolated Wandbox containers (25s timeout); it never proves equivalence across untested code branches.
                     </div>
@@ -1704,9 +1739,9 @@ export default function TranspilerStudio({
                 ) : (
                   dependencyMappings.map((d, idx) => (
                     <div key={idx} className="p-2 rounded t-surface space-y-1">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-sky-400" /> <strong>{d.pythonPkg}</strong> → {d.javaEquivalent}</span>
-                        <span>{d.classification}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-white/5 text-[10px]">{d.validationStatusLabel || d.classification}</span>
                       </div>
                       <p className="opacity-80">{d.compatibilityNote}</p>
                     </div>

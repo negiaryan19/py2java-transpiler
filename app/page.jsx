@@ -6,7 +6,6 @@ import TranspilerStudio from './components/TranspilerStudio';
 import CommandPalette from './components/CommandPalette';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
-import DocumentationView from './components/DocumentationView';
 import CodeComparisonView from './components/CodeComparisonView';
 import AuthModal from './components/AuthModal';
 import {
@@ -14,6 +13,7 @@ import {
   DashboardWorkspaceView,
   VerificationStudioView,
   AssistantWorkspaceView,
+  LearningWorkspaceView,
 } from './components/ShowcaseViews';
 import {
   FilesWorkspaceView,
@@ -32,7 +32,7 @@ import { generateJUnitTestSuite } from '../lib/junit-generator';
 
 const DEFAULT_SETTINGS = {
   theme: 'dark',
-  accent: 'violet',
+  accent: 'orange',
   defaultJavaVersion: 'Java 21 LTS',
   defaultMode: 'strict',
   fontSize: 13,
@@ -119,6 +119,7 @@ export default function JForgeOrchestrator() {
 
   // Auth, History & Verification State
   const [authUser, setAuthUser] = useState(null);
+  const [guestRemaining, setGuestRemaining] = useState(3);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authPromptReason, setAuthPromptReason] = useState('');
   const [history, setHistory] = useState([]);
@@ -161,6 +162,8 @@ export default function JForgeOrchestrator() {
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [copiedId, setCopiedId] = useState(null);
   const toastTimerRef = useRef(null);
+  const draftTimerRef = useRef(null);
+  const authEpochRef = useRef(0);
   const cancelRef = useRef({ cancelled: false, abortController: null });
 
   const showToast = (message) => {
@@ -209,8 +212,14 @@ export default function JForgeOrchestrator() {
       const next = { ...prev, [key]: value };
       try {
         localStorage.setItem('jforge_settings', JSON.stringify(next));
-        if (key === 'theme') localStorage.setItem('jforge_theme', value);
-        if (key === 'accent') localStorage.setItem('jforge_accent', value);
+        if (key === 'theme') {
+          localStorage.setItem('jforge_theme', value);
+          document.documentElement.setAttribute('data-theme', value);
+        }
+        if (key === 'accent') {
+          localStorage.setItem('jforge_accent', value);
+          document.documentElement.setAttribute('data-accent', value);
+        }
       } catch {
         // Ignore storage errors
       }
@@ -218,8 +227,40 @@ export default function JForgeOrchestrator() {
     });
   };
 
+  const resolvedUserId = authUser?.id || authUser?.sub || '';
+  const storageScope = resolvedUserId ? `u_${String(resolvedUserId).replace(/[^a-zA-Z0-9_-]/g, '')}` : 'guest';
+  const draftStorageKey = `jforge_draft_${storageScope}`;
+  const historyStorageKey = `jforge_history_${storageScope}`;
+
+  const resetActiveWorkspaceState = () => {
+    if (draftTimerRef.current) {
+      clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = null;
+    }
+    setHistory([]);
+    setPythonCode('');
+    setJavaCode('');
+    setConversionTitle('Untitled conversion');
+    setVerificationReport(null);
+    setGeneratedUnitTest('');
+    setExecutionStdout('');
+    setWorkspaceFiles([
+      {
+        id: 'tab_1',
+        title: 'Untitled conversion',
+        filename: 'main.py',
+        pythonCode: '',
+        javaCode: '',
+        javaTargetVersion: 'Java 21 LTS',
+      },
+    ]);
+    setActiveFileId('tab_1');
+  };
+
   const handleClearLocalData = () => {
     try {
+      localStorage.removeItem(draftStorageKey);
+      localStorage.removeItem(historyStorageKey);
       localStorage.removeItem('jforge_draft_v2');
       localStorage.removeItem('jforge_history');
     } catch {
@@ -230,7 +271,7 @@ export default function JForgeOrchestrator() {
     showToast('Cleared local drafts & history');
   };
 
-  // Load session, theme/accent settings, local draft, and history asynchronously
+  // Load session, theme/accent settings, scoped draft, and user-isolated history (guarded against stale async & multi-tab switches)
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams(window.location.search);
@@ -239,28 +280,38 @@ export default function JForgeOrchestrator() {
       window.history.replaceState({}, '', window.location.pathname);
     }
 
-    fetch('/api/auth/session', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((sess) => {
-        if (!active) return;
+    const syncSessionAndWorkspace = async (restoreDraft = true) => {
+      const myEpoch = ++authEpochRef.current;
+      try {
+        const res = await fetch('/api/auth/session', { cache: 'no-store' });
+        const sess = await res.json();
+        if (!active || authEpochRef.current !== myEpoch) return;
+
         const user = sess?.authenticated ? sess.user : null;
+        const userUid = user?.id || user?.sub || '';
         setAuthUser(user);
+
+        const activeScope = userUid ? `u_${String(userUid).replace(/[^a-zA-Z0-9_-]/g, '')}` : 'guest';
+        const activeDraftKey = `jforge_draft_${activeScope}`;
+        const activeHistKey = `jforge_history_${activeScope}`;
 
         try {
           const savedSettingsRaw = localStorage.getItem('jforge_settings');
           const parsedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
           if (parsedSettings && typeof parsedSettings === 'object') {
             const cleanTheme = ['dark', 'light'].includes(parsedSettings.theme) ? parsedSettings.theme : 'dark';
-            const cleanAccent = ['violet', 'emerald', 'sky', 'amber', 'rose'].includes(parsedSettings.accent)
+            const cleanAccent = ['orange', 'violet', 'emerald', 'sky', 'rose'].includes(parsedSettings.accent)
               ? parsedSettings.accent
-              : 'violet';
+              : 'orange';
             setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings, theme: cleanTheme, accent: cleanAccent });
+            document.documentElement.setAttribute('data-theme', cleanTheme);
+            document.documentElement.setAttribute('data-accent', cleanAccent);
             if (parsedSettings.defaultJavaVersion) setJavaTargetVersion(parsedSettings.defaultJavaVersion);
             if (parsedSettings.defaultMode) setConversionMode(parsedSettings.defaultMode);
           }
 
-          if (!parsedSettings || parsedSettings.autoSaveDraft !== false) {
-            const savedDraftRaw = localStorage.getItem('jforge_draft_v2');
+          if (restoreDraft && (!parsedSettings || parsedSettings.autoSaveDraft !== false)) {
+            const savedDraftRaw = localStorage.getItem(activeDraftKey);
             if (savedDraftRaw) {
               const draft = JSON.parse(savedDraftRaw);
               if (draft && typeof draft === 'object' && (draft.pythonCode || draft.javaCode)) {
@@ -274,54 +325,91 @@ export default function JForgeOrchestrator() {
             }
           }
 
-          const savedHist = JSON.parse(localStorage.getItem('jforge_history') || '[]');
-          if (Array.isArray(savedHist)) setHistory(savedHist.slice(0, 25));
+          if (!user) {
+            const savedHist = JSON.parse(localStorage.getItem(activeHistKey) || '[]');
+            setHistory(Array.isArray(savedHist) ? savedHist.slice(0, 25) : []);
+          }
         } catch {
           // Ignore corrupted storage
         }
 
-        if (authErr) {
+        if (authErr && restoreDraft) {
           setAuthPromptReason(`Sign-in did not complete (${authErr}).`);
           setAuthModalOpen(true);
         }
 
         if (user) {
-          fetch('/api/history', { cache: 'no-store' })
-            .then((r) => r.json())
-            .then((h) => {
-              if (active && h?.ok && Array.isArray(h.items) && h.items.length > 0) {
-                setHistory(h.items.slice(0, 25));
-              }
-            })
-            .catch(() => {});
+          try {
+            const r = await fetch('/api/history', { cache: 'no-store' });
+            const h = await r.json();
+            if (!active || authEpochRef.current !== myEpoch) return;
+            if (h?.ok && Array.isArray(h.items)) {
+              setHistory(h.items.slice(0, 25));
+            } else {
+              setHistory([]);
+            }
+          } catch {
+            if (active && authEpochRef.current === myEpoch) setHistory([]);
+          }
           studioGetSampleSignatureAction()
-            .then((res) => {
-              if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
+            .then((resSig) => {
+              if (!active || authEpochRef.current !== myEpoch || !resSig?.ok || !resSig.headers?.['X-Signature-SHA256']) return;
               setWebhookDeliveries((prev) =>
                 prev.map((item, idx) =>
                   idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
-                    ? { ...item, headers: { ...item.headers, ...res.headers } }
+                    ? { ...item, headers: { ...item.headers, ...resSig.headers } }
                     : item
                 )
               );
             })
             .catch(() => {});
         }
-      })
-      .catch(() => {});
+      } catch {
+        // Ignore network transient failure
+      }
+    };
+
+    void syncSessionAndWorkspace(true);
+
+    const onStorageSync = (e) => {
+      if (e.key === 'jforge_auth_sync_event') {
+        resetActiveWorkspaceState();
+        setAuthUser(null);
+        void syncSessionAndWorkspace(true);
+      }
+    };
+    window.addEventListener('storage', onStorageSync);
+
+    let bc = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      bc = new BroadcastChannel('jforge_auth_sync');
+      bc.onmessage = () => {
+        resetActiveWorkspaceState();
+        setAuthUser(null);
+        void syncSessionAndWorkspace(true);
+      };
+    }
 
     return () => {
       active = false;
+      window.removeEventListener('storage', onStorageSync);
+      bc?.close();
     };
   }, []);
 
-  // Debounced auto-save draft (never stores API keys or credentials)
+  // Debounced user-scoped auto-save draft (cancelled cleanly on logout or code reset)
   useEffect(() => {
-    if (!settings.autoSaveDraft) return;
-    const timer = setTimeout(() => {
+    if (!settings.autoSaveDraft) return undefined;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    const captureScopeKey = draftStorageKey;
+    const captureEpoch = authEpochRef.current;
+
+    draftTimerRef.current = setTimeout(() => {
+      if (authEpochRef.current !== captureEpoch) return;
+      if (!pythonCode && !javaCode) return;
       try {
         localStorage.setItem(
-          'jforge_draft_v2',
+          captureScopeKey,
           JSON.stringify({
             title: conversionTitle,
             pythonCode,
@@ -336,17 +424,40 @@ export default function JForgeOrchestrator() {
         setAutoSaveStatus('Draft storage full');
       }
     }, 600);
-    return () => clearTimeout(timer);
-  }, [pythonCode, javaCode, conversionTitle, javaTargetVersion, settings.autoSaveDraft]);
+    return () => {
+      if (draftTimerRef.current) {
+        clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+      }
+    };
+  }, [pythonCode, javaCode, conversionTitle, javaTargetVersion, settings.autoSaveDraft, draftStorageKey]);
 
   const handleLogout = async () => {
+    authEpochRef.current += 1;
+    resetActiveWorkspaceState();
+    setAuthUser(null);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {
       // Clear client session cleanly
     }
-    setAuthUser(null);
-    showToast('Signed out of J-Forge Studio');
+    try {
+      localStorage.removeItem(draftStorageKey);
+      localStorage.removeItem(historyStorageKey);
+      localStorage.removeItem('jforge_draft_guest');
+      localStorage.removeItem('jforge_history_guest');
+      localStorage.removeItem('jforge_draft_v2');
+      localStorage.removeItem('jforge_history');
+      localStorage.setItem('jforge_auth_sync_event', `logout_${Date.now()}`);
+    } catch {
+      // Ignore storage failures
+    }
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bc = new BroadcastChannel('jforge_auth_sync');
+      bc.postMessage({ type: 'logout', ts: Date.now() });
+      bc.close();
+    }
+    showToast('Signed out and cleared active session data');
   };
 
   // Workspace multi-tab buffers
@@ -419,7 +530,7 @@ export default function JForgeOrchestrator() {
     };
     setHistory((prev) => {
       const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pySrc)].slice(0, 25);
-      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
     if (authUser) {
@@ -431,6 +542,7 @@ export default function JForgeOrchestrator() {
           pythonCode: pySrc,
           javaCode: jSrc,
           javaTargetVersion,
+          verifiedStatus: statusLabel || null,
         }),
       }).catch(() => {});
     }
@@ -443,7 +555,7 @@ export default function JForgeOrchestrator() {
     if (!clean) return;
     setHistory((prev) => {
       const updated = prev.map((h) => (h.id === id ? { ...h, label: clean } : h));
-      try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(updated)); } catch {}
       return updated;
     });
     if (authUser && !String(id).startsWith('hist_')) {
@@ -459,7 +571,7 @@ export default function JForgeOrchestrator() {
   const handleDeleteHistory = async (id) => {
     setHistory((prev) => {
       const updated = prev.filter((h) => h.id !== id);
-      try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(updated)); } catch {}
       return updated;
     });
     if (authUser && !String(id).startsWith('hist_')) {
@@ -481,7 +593,7 @@ export default function JForgeOrchestrator() {
     };
     setHistory((prev) => {
       const next = [copy, ...prev].slice(0, 25);
-      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
     showToast('Duplicated snapshot');
@@ -490,7 +602,7 @@ export default function JForgeOrchestrator() {
   const handleToggleFavorite = (id) => {
     setHistory((prev) => {
       const next = prev.map((h) => (h.id === id ? { ...h, favorite: !h.favorite } : h));
-      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem(historyStorageKey, JSON.stringify(next)); } catch {}
       return next;
     });
   };
@@ -598,7 +710,7 @@ export default function JForgeOrchestrator() {
           const updated = prev.map((item, i) =>
             i === 0 && item.pythonCode === pyCode ? { ...item, verifiedStatus: data.status } : item
           );
-          try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
+          try { localStorage.setItem(historyStorageKey, JSON.stringify(updated)); } catch {}
           return updated;
         });
       }
@@ -663,6 +775,10 @@ export default function JForgeOrchestrator() {
       });
 
       if (cancelRef.current.cancelled) return;
+
+      if (typeof actionRes?.guestRemaining === 'number') {
+        setGuestRemaining(actionRes.guestRemaining);
+      }
 
       if (actionRes?.ok && actionRes?.data?.java_code) {
         const javaResult = actionRes.data.java_code;
@@ -825,20 +941,20 @@ export default function JForgeOrchestrator() {
     }
   };
 
-  const handleDownloadReadme = () => {
-    const md = `# J-Forge Studio\nPython 3 to Java LTS Conversion, Verification, Compatibility & Code Analysis Workspace.`;
-    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'README.md';
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  const syncedWorkspaceFiles = useMemo(
+    () =>
+      workspaceFiles.map((f) =>
+        f.id === activeFileId
+          ? { ...f, title: conversionTitle, pythonCode, javaCode, javaTargetVersion }
+          : f
+      ),
+    [workspaceFiles, activeFileId, conversionTitle, pythonCode, javaCode, javaTargetVersion]
+  );
 
   return (
     <div
       data-theme={settings.theme}
-      data-accent={settings.accent || 'violet'}
+      data-accent={settings.accent || 'orange'}
       className={`min-h-screen flex flex-col antialiased ${settings.reducedMotion ? 'reduced-motion' : ''}`}
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}
     >
@@ -860,7 +976,6 @@ export default function JForgeOrchestrator() {
           authUser={authUser}
           onStartConverting={() => setActiveView('studio')}
           onOpenDashboard={() => setActiveView('dashboard')}
-          onOpenDocs={() => setActiveView('docs')}
         />
       ) : (
         <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-3rem)]">
@@ -876,8 +991,9 @@ export default function JForgeOrchestrator() {
               <DashboardWorkspaceView
                 authUser={authUser}
                 history={history}
-                workspaceFiles={workspaceFiles}
+                workspaceFiles={syncedWorkspaceFiles}
                 verificationReport={verificationReport}
+                guestRemaining={guestRemaining}
                 onNewConversion={handleCreateWorkspaceFile}
                 onOpenStudio={() => setActiveView('studio')}
                 onOpenAssistant={() => setActiveView('assistant')}
@@ -898,9 +1014,17 @@ export default function JForgeOrchestrator() {
                 conversionTitle={conversionTitle}
                 onChangeTitle={setConversionTitle}
                 pythonCode={pythonCode}
-                setPythonCode={setPythonCode}
+                setPythonCode={(val) => {
+                  setPythonCode(val);
+                  if (verificationReport) setVerificationReport(null);
+                  if (generatedUnitTest) setGeneratedUnitTest('');
+                }}
                 javaCode={javaCode}
-                setJavaCode={setJavaCode}
+                setJavaCode={(val) => {
+                  setJavaCode(val);
+                  if (verificationReport) setVerificationReport(null);
+                  if (generatedUnitTest) setGeneratedUnitTest('');
+                }}
                 javaTargetVersion={javaTargetVersion}
                 setJavaTargetVersion={setJavaTargetVersion}
                 conversionMode={conversionMode}
@@ -981,7 +1105,7 @@ export default function JForgeOrchestrator() {
 
             {activeView === 'files' && (
               <FilesWorkspaceView
-                files={workspaceFiles}
+                files={syncedWorkspaceFiles}
                 activeFileId={activeFileId}
                 onSelectFile={handleSelectWorkspaceFile}
                 onCreateFile={handleCreateWorkspaceFile}
@@ -994,7 +1118,7 @@ export default function JForgeOrchestrator() {
               <HistoryWorkspaceView
                 authUser={authUser}
                 history={history}
-                workspaceFiles={workspaceFiles}
+                workspaceFiles={syncedWorkspaceFiles}
                 activeFileId={activeFileId}
                 onSelectFile={handleSelectWorkspaceFile}
                 onCreateFile={handleCreateWorkspaceFile}
@@ -1038,7 +1162,10 @@ export default function JForgeOrchestrator() {
               <CodeComparisonView
                 pythonCode={pythonCode}
                 javaCode={javaCode}
-                onEditPython={setPythonCode}
+                onEditPython={(val) => {
+                  setPythonCode(val);
+                  if (verificationReport) setVerificationReport(null);
+                }}
                 onRunConvert={() => handleTranspile({ verify: true })}
                 isTranspiling={isTranspiling}
               />
@@ -1046,6 +1173,19 @@ export default function JForgeOrchestrator() {
 
             {activeView === 'analysis' && (
               <AnalysisWorkspaceView pythonCode={pythonCode} javaCode={javaCode} />
+            )}
+
+            {activeView === 'learning' && (
+              <LearningWorkspaceView
+                onLoadExerciseToStudio={(topic) => {
+                  setConversionTitle(topic.title);
+                  setPythonCode(topic.pyExample);
+                  setJavaCode('');
+                  setVerificationReport(null);
+                  setActiveView('studio');
+                  showToast(`Loaded exercise: ${topic.title}`);
+                }}
+              />
             )}
 
             {activeView === 'playground' && (
@@ -1092,10 +1232,6 @@ export default function JForgeOrchestrator() {
                   copiedId={copiedId}
                 />
               </div>
-            )}
-
-            {activeView === 'docs' && (
-              <DocumentationView onDownloadReadme={handleDownloadReadme} copyToClipboard={copyToClipboard} copiedId={copiedId} />
             )}
 
             {activeView === 'settings' && (
