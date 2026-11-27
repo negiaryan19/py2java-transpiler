@@ -341,12 +341,7 @@ export default function ASTDiffViewer({
                 pillBorder = 'border-amber-500/30 hover:border-amber-500/60 bg-amber-950/20 text-amber-300';
               }
 
-              // Scope active selection to the current alignmentPairs array without setState in useEffect
-  const visibleExplanation =
-    activeExplanation?.pairsSnapshot === alignmentPairs ? activeExplanation : null;
-  const visiblePairId = visibleExplanation ? activePairId : null;
-
-  return (
+              return (
                 <button
                   key={idx}
                   onClick={() => highlightPair(pair)}
