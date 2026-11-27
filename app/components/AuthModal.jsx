@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Lock, ShieldCheck, X, AlertCircle } from 'lucide-react';
+import { Lock, ShieldCheck, X, AlertCircle, Mail } from 'lucide-react';
 
 export default function AuthModal({
   open,
@@ -12,7 +12,8 @@ export default function AuthModal({
 }) {
   if (!open) return null;
 
-  const authHref = `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+  const loginHref = `/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const googleHref = `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -40,42 +41,33 @@ export default function AuthModal({
           )}
 
           <p style={{ color: 'var(--text-secondary)' }}>
-            Sign in or automatically create your J-Forge account with your{' '}
-            <strong>Google / Gmail</strong> account to run live Gemini 2.5 Flash compilation,
+            Sign in or create your J-Forge account to run live Gemini 2.5 Flash compilation,
             AI diagnostics, AST Diff, and Webhook dispatches with per-user quota protection.
           </p>
 
           <div className="p-3 t-subtle space-y-1.5 text-[11px]">
             <div className="flex items-center gap-1.5 font-mono font-semibold text-emerald-600">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Stateless OAuth 2.0 + PKCE Security</span>
+              <span>Secure PBKDF2-SHA512 + HttpOnly Session</span>
             </div>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Uses OpenID Connect (<code className="font-mono">openid email profile</code>) and an
-              encrypted <code className="font-mono">HttpOnly</code> session cookie. No raw Google tokens
-              or server API keys ever reach browser JS.
+              Passwords are hashed with 120k-iteration PBKDF2-SHA512. Session uses an HMAC-SHA256
+              signed <code className="font-mono">HttpOnly</code> cookie. No secrets reach browser JS.
             </p>
           </div>
-
-          {!oauthConfigured && (
-            <div className="p-2.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-500 font-mono text-[11px]">
-              Google OAuth credentials (<code>GOOGLE_CLIENT_ID</code>,{' '}
-              <code>GOOGLE_CLIENT_SECRET</code>, <code>AUTH_SECRET</code>) are not configured yet on
-              this deployment.
-            </div>
-          )}
         </div>
 
-        <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 t-border-t">
-          <button
-            onClick={onClose}
-            className="t-btn-secondary px-3 py-2 text-xs font-mono cursor-pointer"
-          >
-            Continue Browsing
-          </button>
+        <div className="flex flex-col gap-2 pt-3 t-border-t">
           <a
-            href={authHref}
-            className="t-btn-primary px-4 py-2 text-xs font-mono flex items-center justify-center gap-2 cursor-pointer"
+            href={loginHref}
+            className="t-btn-primary px-4 py-2.5 text-xs font-mono flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Sign In with Email & Password</span>
+          </a>
+          <a
+            href={googleHref}
+            className="t-btn-secondary px-4 py-2 text-xs font-mono flex items-center justify-center gap-2 cursor-pointer"
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -85,6 +77,12 @@ export default function AuthModal({
             </svg>
             <span>Continue with Google (Gmail)</span>
           </a>
+          <button
+            onClick={onClose}
+            className="t-btn-secondary px-3 py-2 text-xs font-mono cursor-pointer"
+          >
+            Continue Browsing
+          </button>
         </div>
       </div>
     </div>

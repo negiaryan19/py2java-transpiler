@@ -111,7 +111,7 @@ async function requireAuthenticatedActionSession() {
         ok: false,
         status: 401,
         code: 'AUTH_REQUIRED',
-        error: 'Sign in with Google (Gmail) is required for live AI & webhook features.',
+        error: 'Sign in is required for live AI & webhook features. Please sign in or create an account.',
       },
     };
   }

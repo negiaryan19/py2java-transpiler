@@ -157,13 +157,13 @@ export default function Navigation({
               </button>
             </div>
           ) : (
-            <button
-              onClick={onOpenAuthModal}
+            <a
+              href="/login"
               className="t-btn-primary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>
-            </button>
+            </a>
           )}
         </div>
       </header>

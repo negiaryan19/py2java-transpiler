@@ -5,6 +5,7 @@ import {
   isGoogleOAuthConfigured,
   verifySessionToken,
 } from '../../../../lib/session.js';
+import { isDatabaseConfigured } from '../../../../lib/db.js';
 
 /**
  * GET /api/auth/session
@@ -19,6 +20,7 @@ export async function GET() {
     {
       authenticated: Boolean(session),
       oauthConfigured: isGoogleOAuthConfigured(),
+      dbConfigured: await isDatabaseConfigured(),
       user: session
         ? {
             sub: session.sub,

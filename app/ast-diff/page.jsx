@@ -201,16 +201,13 @@ export default function ASTDiffPage() {
               </button>
             </div>
           ) : (
-            <button
-              onClick={() => {
-                setAuthReason('');
-                setAuthModalOpen(true);
-              }}
+            <a
+              href="/login?returnTo=/ast-diff"
               className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>
-            </button>
+            </a>
           )}
         </div>
       </header>
@@ -222,18 +219,15 @@ export default function ASTDiffPage() {
             <div className="flex items-center gap-3 text-xs font-mono text-amber-200">
               <Lock className="w-4 h-4 text-amber-400 shrink-0" />
               <span>
-                Sign in with your Google (Gmail) account to run live Gemini 2.5 Flash synthesis & AST alignment.
+                Sign in to run live Gemini 2.5 Flash synthesis & AST alignment.
               </span>
             </div>
-            <button
-              onClick={() => {
-                setAuthReason('');
-                setAuthModalOpen(true);
-              }}
+            <a
+              href="/login?returnTo=/ast-diff"
               className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-bold text-xs cursor-pointer"
             >
-              Continue with Google (Gmail)
-            </button>
+              Sign In / Create Account
+            </a>
           </div>
         )}
         {/* Header Hero Banner */}
