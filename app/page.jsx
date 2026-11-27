@@ -13,6 +13,7 @@ import {
   studioDispatchWebhookAction,
   studioGetSampleSignatureAction,
 } from './actions.js';
+import { evaluatePythonStdout } from '../lib/stdout-eval';
 
 /* ==========================================================================
    ALGORITHMIC PRESET REPOSITORY
@@ -517,42 +518,7 @@ function computeProgramStdout(pyCode) {
     }
   }
 
-  // Check for simple range loop: for i in range(N): print(i)
-  const rangeMatch = pyCode.match(/for\s+(\w+)\s+in\s+range\((.*?)\):\s*\n\s*print\(\1\)/);
-  if (rangeMatch) {
-    const args = rangeMatch[2].split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
-    let start = 0, stop = 0, step = 1;
-    if (args.length === 1) { stop = args[0]; }
-    else if (args.length === 2) { start = args[0]; stop = args[1]; }
-    else if (args.length >= 3) { start = args[0]; stop = args[1]; step = args[2]; }
-
-    const limit = Math.min(100, Math.max(0, Math.ceil((stop - start) / (step || 1))));
-    const out = [];
-    let val = start;
-    for (let c = 0; c < limit; c++) {
-      out.push(String(val));
-      val += step;
-    }
-    return out.join('\n');
-  }
-
-  // Extract print statements
-  const lines = pyCode.split('\n');
-  const outputs = [];
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (trimmedLine.startsWith('print(') && trimmedLine.endsWith(')')) {
-      const inner = trimmedLine.slice(6, -1).trim();
-      if (/^f?["'].*["']$/.test(inner)) {
-        outputs.push(inner.replace(/^f?["']|["']$/g, ''));
-      } else if (!isNaN(Number(inner))) {
-        outputs.push(inner);
-      } else {
-        outputs.push(`${inner}`);
-      }
-    }
-  }
-
+  const outputs = evaluatePythonStdout(pyCode);
   return outputs.length > 0
     ? outputs.join('\n')
     : 'Execution verified successfully with exit code 0.';
