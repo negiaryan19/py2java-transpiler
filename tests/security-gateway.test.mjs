@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import { checkRateLimit } from '../lib/rate-limit.js';
 import { maskSecret, generateSecureSecret, getSecurityAudit } from '../lib/env.js';
+import { deliverWithPinnedDns } from '../lib/webhook.js';
 import { GET as healthGet } from '../app/api/v1/health/route.js';
 import { GET as openapiGet } from '../app/api/v1/openapi.json/route.js';
 import { POST as convertPost } from '../app/api/v1/convert/route.js';
@@ -203,5 +205,46 @@ test('Input Hardening: Blocks unauthorized relative webhook_url paths like //evi
       })
     );
     assert.equal(res.status, 400, `Expected 400 for bad relative webhook_url: ${badPath}`);
+  }
+});
+
+test('SSRF & DNS Rebinding Guard: deliverWithPinnedDns uses pre-validated IP and rejects 3xx redirects', async () => {
+  let reqCount = 0;
+  const server = http.createServer((req, res) => {
+    reqCount += 1;
+    if (req.url === '/redirect') {
+      res.writeHead(302, { Location: 'http://169.254.169.254/latest/meta-data/' });
+      res.end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{"ok":true}');
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  try {
+    // Non-existent public hostname routed strictly via pre-validated pinnedRecords without DNS lookup
+    const okRes = await deliverWithPinnedDns(`http://rebind-test.invalid:${port}/hook`, {
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"test":true}',
+      pinnedRecords: [{ address: '127.0.0.1', family: 4 }],
+    });
+    assert.equal(okRes.status, 200);
+    assert.equal(okRes.ok, true);
+
+    await assert.rejects(
+      () =>
+        deliverWithPinnedDns(`http://rebind-test.invalid:${port}/redirect`, {
+          headers: { 'Content-Type': 'application/json' },
+          body: '{"test":true}',
+          pinnedRecords: [{ address: '127.0.0.1', family: 4 }],
+        }),
+      /Blocked HTTP redirect/
+    );
+    assert.equal(reqCount, 2);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
   }
 });

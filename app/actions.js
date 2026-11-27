@@ -31,6 +31,29 @@ const STATIC_DEMO_SAMPLE_PAYLOAD = {
   },
 };
 
+const MAX_UI_GEMINI_CALLS_PER_HOUR = 100;
+const UI_BUDGET_WINDOW_MS = 60 * 60 * 1000;
+
+function consumeServerGeminiUiBudget() {
+  const now = Date.now();
+  const store = globalThis.__jforgeUiGeminiBudget || { count: 0, windowStart: now };
+  if (now - store.windowStart >= UI_BUDGET_WINDOW_MS) {
+    store.count = 1;
+    store.windowStart = now;
+  } else {
+    store.count += 1;
+  }
+  globalThis.__jforgeUiGeminiBudget = store;
+  return store.count <= MAX_UI_GEMINI_CALLS_PER_HOUR;
+}
+
+function sanitizeClientGeminiKey(raw) {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 120 || !/^[\x21-\x7E]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 async function getServerActionClientContext() {
   const reqHeaders = await headers();
   const clientId = extractTrustedClientIp(reqHeaders);
@@ -44,9 +67,21 @@ async function getServerActionClientContext() {
         ? 'http'
         : 'https';
 
+  const secFetchSite = reqHeaders.get('sec-fetch-site');
+  const originHeader = reqHeaders.get('origin');
+  let originAllowed = secFetchSite !== 'cross-site';
+  if (originAllowed && originHeader) {
+    try {
+      originAllowed = new URL(originHeader).host === host;
+    } catch {
+      originAllowed = false;
+    }
+  }
+
   return {
     clientId,
     origin: `${proto}://${host}`,
+    originAllowed,
   };
 }
 
@@ -63,12 +98,16 @@ export async function studioTranspileAction({
   bypassCache = false,
 } = {}) {
   const startTime = performance.now();
-  const { clientId, origin } = await getServerActionClientContext();
+  const { clientId, origin, originAllowed } = await getServerActionClientContext();
+  if (!originAllowed) {
+    metrics.incTranspile(403);
+    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  }
 
   const rateLimit = checkRateLimit(null, {
     clientId,
     keyPrefix: 'ui_transpile:',
-    limit: 25,
+    limit: 15,
     windowMs: 60 * 1000,
   });
   if (!rateLimit.allowed) {
@@ -77,7 +116,7 @@ export async function studioTranspileAction({
     return {
       ok: false,
       status: 429,
-      error: 'UI rate limit exceeded (25 requests/minute). Please retry in a moment.',
+      error: 'UI rate limit exceeded (15 requests/minute). Please retry in a moment.',
     };
   }
 
@@ -101,8 +140,11 @@ export async function studioTranspileAction({
     };
   }
   const safeJavaVersion = versionCheck.value;
+  const safeOverrideKey = sanitizeClientGeminiKey(clientGeminiKey);
+  // Ignore cache bypass for anonymous callers using server GEMINI_API_KEY
+  const effectiveBypassCache = Boolean(bypassCache && safeOverrideKey);
   const cacheKey = astCache.computeKey(pythonCode, safeJavaVersion);
-  const cachedHit = !bypassCache ? astCache.get(cacheKey) : null;
+  const cachedHit = !effectiveBypassCache ? astCache.get(cacheKey) : null;
 
   try {
     let javaCode = '';
@@ -120,19 +162,19 @@ export async function studioTranspileAction({
       metrics.incCacheHit();
     } else {
       metrics.incCacheMiss();
-      const safeOverrideKey =
-        typeof clientGeminiKey === 'string' && clientGeminiKey.trim() ? clientGeminiKey.trim() : null;
+      const skipServerKey = !safeOverrideKey && !consumeServerGeminiUiBudget();
 
       const transpiled = await transpilePythonToJava(
         pythonCode,
         `Java ${safeJavaVersion} LTS`,
-        safeOverrideKey
+        safeOverrideKey,
+        { skipServerKey }
       );
 
       const healed = await healJavaCode({
         javaCode: transpiled.javaCode,
         pythonCode,
-        apiKey: safeOverrideKey || process.env.GEMINI_API_KEY,
+        apiKey: safeOverrideKey || (skipServerKey ? '' : process.env.GEMINI_API_KEY),
         targetVersion: `Java ${safeJavaVersion} LTS`,
       });
 
@@ -233,11 +275,14 @@ export async function studioTranspileAction({
  */
 export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {}) {
   metrics.incExplainRequest();
-  const { clientId } = await getServerActionClientContext();
+  const { clientId, originAllowed } = await getServerActionClientContext();
+  if (!originAllowed) {
+    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  }
   const rateLimit = checkRateLimit(null, {
     clientId,
     keyPrefix: 'ui_explain:',
-    limit: 30,
+    limit: 20,
     windowMs: 60 * 1000,
   });
   if (!rateLimit.allowed) {
@@ -259,7 +304,8 @@ export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {
   }
 
   try {
-    const data = await explainPythonToJava(pythonCode, versionCheck.value);
+    const skipServerKey = !consumeServerGeminiUiBudget();
+    const data = await explainPythonToJava(pythonCode, versionCheck.value, { skipServerKey });
     return { ok: true, status: 200, data };
   } catch {
     return { ok: false, status: 500, error: 'Failed to analyze compiler diagnostics.' };
@@ -271,11 +317,14 @@ export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {
  * AST node alignment without needing APP_API_KEY in the browser.
  */
 export async function studioAstDiffAction({ pythonCode } = {}) {
-  const { clientId } = await getServerActionClientContext();
+  const { clientId, originAllowed } = await getServerActionClientContext();
+  if (!originAllowed) {
+    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  }
   const rateLimit = checkRateLimit(null, {
     clientId,
     keyPrefix: 'ui_ast:',
-    limit: 30,
+    limit: 20,
     windowMs: 60 * 1000,
   });
   if (!rateLimit.allowed) {
@@ -297,11 +346,12 @@ export async function studioAstDiffAction({ pythonCode } = {}) {
 
     let javaCode = cachedHit?.javaCode || '';
     if (!javaCode) {
-      const transpiled = await transpilePythonToJava(pythonCode, 'Java 17 LTS', null);
+      const skipServerKey = !consumeServerGeminiUiBudget();
+      const transpiled = await transpilePythonToJava(pythonCode, 'Java 17 LTS', null, { skipServerKey });
       const healed = await healJavaCode({
         javaCode: transpiled.javaCode,
         pythonCode,
-        apiKey: process.env.GEMINI_API_KEY,
+        apiKey: skipServerKey ? '' : process.env.GEMINI_API_KEY,
         targetVersion: 'Java 17 LTS',
       });
       javaCode = healed.javaCode;
@@ -355,11 +405,14 @@ export async function studioDispatchWebhookAction({
   latencyMs = 31,
   customSecret = '',
 } = {}) {
-  const { clientId, origin } = await getServerActionClientContext();
+  const { clientId, origin, originAllowed } = await getServerActionClientContext();
+  if (!originAllowed) {
+    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  }
   const rateLimit = checkRateLimit(null, {
     clientId,
     keyPrefix: 'ui_webhook:',
-    limit: 20,
+    limit: 15,
     windowMs: 60 * 1000,
   });
   if (!rateLimit.allowed) {

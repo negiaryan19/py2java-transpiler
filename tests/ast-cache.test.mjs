@@ -30,6 +30,10 @@ test('AST Cache: Computes identical SHA-256 key for semantically identical Pytho
 });
 
 test('AST Cache: Cache Miss returns null and records metric; Cache Hit returns payload in sub-5ms', () => {
+  // Warm V8 Map lookup & timer path on a throwaway key before strict sub-5ms benchmark
+  astCache.set('__warmup__', { javaCode: 'class Warmup {}' });
+  astCache.get('__warmup__');
+
   const uniqueCode = `def unique_func_${Date.now()}(): return "test"`;
   const key = astCache.computeKey(uniqueCode, '17');
 
