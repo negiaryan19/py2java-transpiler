@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -68,8 +68,7 @@ export default function ASTDiffPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState(null);
 
-  const handleAnalyze = async (overrideCode) => {
-    const codeToAnalyze = overrideCode || pythonCode;
+  const analyzeCode = useCallback(async (codeToAnalyze) => {
     if (!codeToAnalyze || !codeToAnalyze.trim()) {
       setErrorMessage('Please enter valid Python code to analyze.');
       return;
@@ -134,20 +133,25 @@ export default function ASTDiffPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const handleAnalyze = (overrideCode) => analyzeCode(overrideCode ?? pythonCode);
 
   const handleSelectPreset = (key) => {
     const preset = SAMPLE_PRESETS[key];
     if (preset) {
       setPythonCode(preset.code);
-      handleAnalyze(preset.code);
+      void analyzeCode(preset.code);
     }
   };
 
-  // Run initial analysis on first mount
+  // Run initial analysis asynchronously after mount
   useEffect(() => {
-    handleAnalyze(SAMPLE_PRESETS.fastapi.code);
-  }, []);
+    const timer = setTimeout(() => {
+      void analyzeCode(SAMPLE_PRESETS.fastapi.code);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [analyzeCode]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">

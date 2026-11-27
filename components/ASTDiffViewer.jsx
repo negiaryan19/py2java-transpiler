@@ -38,10 +38,41 @@ export default function ASTDiffViewer({
   const pyEditorRef = useRef(null);
   const javaEditorRef = useRef(null);
   const monacoRef = useRef(null);
+  const pairsRef = useRef(alignmentPairs);
+  const hoverProviderRef = useRef(null);
 
   // Track decoration IDs for clean updates without stacking
   const pyDecorationsRef = useRef([]);
   const javaDecorationsRef = useRef([]);
+
+  useEffect(() => {
+    pairsRef.current = alignmentPairs;
+    if (pyEditorRef.current) {
+      pyDecorationsRef.current = pyEditorRef.current.deltaDecorations(pyDecorationsRef.current, []);
+    }
+    if (javaEditorRef.current) {
+      javaDecorationsRef.current = javaEditorRef.current.deltaDecorations(javaDecorationsRef.current, []);
+    }
+  }, [alignmentPairs]);
+
+  useEffect(() => {
+    return () => {
+      hoverProviderRef.current?.dispose();
+    };
+  }, []);
+
+  const findPairAtPosition = useCallback((lineNumber, column) => {
+    const targetLine = lineNumber - 1;
+    const targetCol = column - 1;
+    return pairsRef.current.find((pair) => {
+      const r = pair?.python?.range;
+      if (!r) return false;
+      if (targetLine < r.startLine || targetLine > r.endLine) return false;
+      if (targetLine === r.startLine && targetCol < r.startCol) return false;
+      if (targetLine === r.endLine && targetCol > r.endCol) return false;
+      return true;
+    });
+  }, []);
 
   // Calculate legend counters
   const exactCount = alignmentPairs.filter((p) => p.color === 'green').length;
@@ -70,6 +101,7 @@ export default function ASTDiffViewer({
       confidence: pair.confidence,
       color: pair.color,
       explanation: pair.explanation,
+      pairsSnapshot: pairsRef.current,
     });
 
     const monaco = monacoRef.current;
@@ -130,20 +162,12 @@ export default function ASTDiffViewer({
     pyEditorRef.current = editor;
     monacoRef.current = monaco;
 
-    // Register hover provider on Python language model
-    monaco.languages.registerHoverProvider('python', {
-      provideHover: (model, position) => {
-        // Tree-sitter ranges are 0-indexed; Monaco positions are 1-indexed
-        const targetLine = position.lineNumber - 1;
-        const targetCol = position.column - 1;
+    hoverProviderRef.current?.dispose();
 
-        const matchedPair = alignmentPairs.find((pair) => {
-          const r = pair.python.range;
-          if (targetLine < r.startLine || targetLine > r.endLine) return false;
-          if (targetLine === r.startLine && targetCol < r.startCol) return false;
-          if (targetLine === r.endLine && targetCol > r.endCol) return false;
-          return true;
-        });
+    // Register hover provider reading latest pairsRef so async fetches & preset switches work
+    hoverProviderRef.current = monaco.languages.registerHoverProvider('python', {
+      provideHover: (_model, position) => {
+        const matchedPair = findPairAtPosition(position.lineNumber, position.column);
 
         if (matchedPair) {
           highlightPair(matchedPair);
@@ -169,17 +193,7 @@ export default function ASTDiffViewer({
 
     // Also handle cursor position changes / mouse clicks
     editor.onDidChangeCursorPosition((e) => {
-      const targetLine = e.position.lineNumber - 1;
-      const targetCol = e.position.column - 1;
-
-      const matchedPair = alignmentPairs.find((pair) => {
-        const r = pair.python.range;
-        if (targetLine < r.startLine || targetLine > r.endLine) return false;
-        if (targetLine === r.startLine && targetCol < r.startCol) return false;
-        if (targetLine === r.endLine && targetCol > r.endCol) return false;
-        return true;
-      });
-
+      const matchedPair = findPairAtPosition(e.position.lineNumber, e.position.column);
       if (matchedPair) {
         highlightPair(matchedPair);
       }
@@ -201,6 +215,11 @@ export default function ASTDiffViewer({
     setActiveExplanation(null);
     highlightPair(null);
   };
+
+  // Scope active selection to the current alignmentPairs array without setState in useEffect
+  const visibleExplanation =
+    activeExplanation?.pairsSnapshot === alignmentPairs ? activeExplanation : null;
+  const visiblePairId = visibleExplanation ? activePairId : null;
 
   return (
     <div className="space-y-4 font-sans relative">
@@ -309,7 +328,7 @@ export default function ASTDiffViewer({
           <div className="flex flex-wrap gap-2">
             {alignmentPairs.map((pair, idx) => {
               const pairKey = `${pair.python.id}_${pair.java.id}`;
-              const isActive = activePairId === pairKey;
+              const isActive = visiblePairId === pairKey;
 
               let pillBorder = 'border-slate-800 hover:border-slate-700 bg-slate-900 text-slate-300';
               if (isActive) {
@@ -322,7 +341,12 @@ export default function ASTDiffViewer({
                 pillBorder = 'border-amber-500/30 hover:border-amber-500/60 bg-amber-950/20 text-amber-300';
               }
 
-              return (
+              // Scope active selection to the current alignmentPairs array without setState in useEffect
+  const visibleExplanation =
+    activeExplanation?.pairsSnapshot === alignmentPairs ? activeExplanation : null;
+  const visiblePairId = visibleExplanation ? activePairId : null;
+
+  return (
                 <button
                   key={idx}
                   onClick={() => highlightPair(pair)}
@@ -340,7 +364,7 @@ export default function ASTDiffViewer({
 
       {/* Slide-in Semantic Explanation Drawer */}
       <ExplanationDrawer
-        activeExplanation={activeExplanation}
+        activeExplanation={visibleExplanation}
         onClose={handleCloseDrawer}
       />
     </div>
