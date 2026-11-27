@@ -32,6 +32,7 @@ export default function LoginPage() {
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [resetSent, setResetSent] = useState(false);
+  const [theme, setTheme] = useState('cupertino');
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
@@ -78,6 +79,14 @@ export default function LoginPage() {
       .then((r) => r.json())
       .then((s) => {
         if (!active) return;
+        try {
+          const savedTheme = localStorage.getItem('jforge_theme');
+          if (savedTheme && ['cupertino', 'brutalist', 'carbon'].includes(savedTheme)) {
+            setTheme(savedTheme);
+          }
+        } catch {
+          // Ignore storage errors
+        }
         setReturnTo(nextPath);
         if (authErr) {
           setError(`Sign-in did not complete (${authErr}).`);
@@ -143,53 +152,53 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans">
-      {/* Back to J-Forge */}
-      <div className="w-full max-w-md mb-6">
+    <main
+      data-theme={theme}
+      className="min-h-screen flex flex-col items-center justify-center p-4 font-sans"
+      style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}
+    >
+      {/* Back to Converter */}
+      <div className="w-full max-w-md mb-5">
         <Link
           href="/"
-          className="flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-slate-100 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-mono t-btn-secondary px-3 py-1.5"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to J-Forge Studio</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Converter</span>
         </Link>
       </div>
 
       {/* Login Card */}
-      <div className="w-full max-w-md border border-slate-800 bg-slate-900/80 backdrop-blur-md rounded-xl p-6 space-y-5 shadow-2xl">
+      <div className="w-full max-w-md t-surface p-6 space-y-5">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500/15 border border-emerald-500/30 mb-2">
-            <Lock className="w-6 h-6 text-emerald-400" />
+          <div className="inline-flex items-center justify-center w-11 h-11 font-mono font-bold text-base t-btn-primary mb-1">
+            JF
           </div>
-          <h1 className="text-xl font-bold tracking-tight">
-            {mode === 'register' ? 'Create Account' : 'Sign In'}
+          <h1 className="text-xl font-bold tracking-tight heading-font">
+            {mode === 'register' ? 'Create Account' : 'Sign In to J-Forge'}
           </h1>
-          <p className="text-xs text-slate-400 font-mono">
+          <p className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
             {mode === 'register'
-              ? 'Create your J-Forge account to access live AI transpilation'
-              : 'Sign in to access live Gemini AI transpilation, AST Diff & Webhooks'}
+              ? 'Create your account to save conversion history'
+              : 'Sign in to sync your conversion history and get unlimited access'}
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border border-slate-800 rounded-lg overflow-hidden">
+        <div className="flex p-1 t-subtle gap-1">
           <button
             onClick={() => { setMode('login'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 text-xs font-mono font-semibold transition-colors cursor-pointer ${
-              mode === 'login'
-                ? 'bg-emerald-500/15 text-emerald-400 border-b-2 border-emerald-400'
-                : 'text-slate-400 hover:text-slate-200'
+            className={`flex-1 py-2 text-xs font-mono font-semibold rounded transition-colors cursor-pointer ${
+              mode === 'login' ? 't-surface font-bold' : 'opacity-70 hover:opacity-100'
             }`}
           >
             Sign In
           </button>
           <button
             onClick={() => { setMode('register'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 text-xs font-mono font-semibold transition-colors cursor-pointer ${
-              mode === 'register'
-                ? 'bg-sky-500/15 text-sky-400 border-b-2 border-sky-400'
-                : 'text-slate-400 hover:text-slate-200'
+            className={`flex-1 py-2 text-xs font-mono font-semibold rounded transition-colors cursor-pointer ${
+              mode === 'register' ? 't-surface font-bold' : 'opacity-70 hover:opacity-100'
             }`}
           >
             Create Account
@@ -222,7 +231,7 @@ export default function LoginPage() {
           {/* Name (register only) */}
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-mono font-semibold mb-1.5">
                 Full Name <span className="text-rose-400">*</span>
               </label>
               <div className="relative">
@@ -234,7 +243,7 @@ export default function LoginPage() {
                   placeholder="Aryan Negi"
                   required
                   maxLength={120}
-                  className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-600"
+                  className="w-full pl-10 pr-3 py-2.5 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
             </div>
@@ -242,7 +251,7 @@ export default function LoginPage() {
 
           {/* Email */}
           <div>
-            <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-mono font-semibold mb-1.5">
               Email Address <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
@@ -255,14 +264,14 @@ export default function LoginPage() {
                 required
                 maxLength={254}
                 autoComplete="email"
-                className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-600"
+                className="w-full pl-10 pr-3 py-2.5 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-mono font-semibold mb-1.5">
               Password <span className="text-rose-400">*</span>
             </label>
             <div className="relative">
@@ -276,7 +285,7 @@ export default function LoginPage() {
                 minLength={6}
                 maxLength={128}
                 autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
-                className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-600"
+                className="w-full pl-10 pr-10 py-2.5 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
               <button
                 type="button"
@@ -308,7 +317,7 @@ export default function LoginPage() {
           {mode === 'register' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-mono font-semibold mb-1.5">
                   Organization
                 </label>
                 <div className="relative">
@@ -319,12 +328,12 @@ export default function LoginPage() {
                     onChange={(e) => setOrganization(e.target.value)}
                     placeholder="Chandigarh Univ."
                     maxLength={120}
-                    className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-600"
+                    className="w-full pl-10 pr-3 py-2.5 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-mono font-semibold text-slate-300 mb-1.5">
+                <label className="block text-xs font-mono font-semibold mb-1.5">
                   Role
                 </label>
                 <div className="relative">
@@ -332,7 +341,7 @@ export default function LoginPage() {
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500 appearance-none cursor-pointer"
+                    className="w-full pl-10 pr-3 py-2.5 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none cursor-pointer"
                   >
                     <option value="student">Student</option>
                     <option value="faculty">Faculty</option>
@@ -348,7 +357,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-all shadow-lg shadow-emerald-500/20"
+            className="w-full py-2.5 t-btn-primary font-mono font-bold text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -362,8 +371,8 @@ export default function LoginPage() {
         </form>
 
         {forgotOpen && (
-          <form onSubmit={handleForgotSubmit} className="p-3.5 rounded-lg border border-slate-800 bg-slate-950/70 space-y-3">
-            <p className="text-xs font-mono font-semibold text-slate-200">
+          <form onSubmit={handleForgotSubmit} className="p-3.5 t-subtle space-y-3">
+            <p className="text-xs font-mono font-semibold">
               {resetSent ? 'Enter 6-digit Reset Code & New Password' : 'Reset your password via email'}
             </p>
             {resetSent && (
@@ -375,7 +384,7 @@ export default function LoginPage() {
                   placeholder="6-digit code"
                   required
                   maxLength={6}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
                 <input
                   type="password"
@@ -385,7 +394,7 @@ export default function LoginPage() {
                   required
                   minLength={8}
                   maxLength={128}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </>
             )}

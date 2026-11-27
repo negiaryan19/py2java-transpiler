@@ -698,6 +698,10 @@ export default function JForgeOrchestrator() {
         const user = sess?.authenticated ? sess.user : null;
         setAuthUser(user);
         try {
+          const savedTheme = localStorage.getItem('jforge_theme');
+          if (savedTheme && ['cupertino', 'brutalist', 'carbon'].includes(savedTheme)) {
+            setTheme(savedTheme);
+          }
           const saved = JSON.parse(localStorage.getItem('jforge_history') || '[]');
           if (Array.isArray(saved)) setHistory(saved.slice(0, 5));
         } catch {
@@ -1244,7 +1248,14 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       {/* Top Global Navigation Bar */}
       <Navigation
         theme={theme}
-        setTheme={setTheme}
+        setTheme={(next) => {
+          setTheme(next);
+          try {
+            localStorage.setItem('jforge_theme', next);
+          } catch {
+            // Ignore storage errors
+          }
+        }}
         activeEngine={activeEngine}
         showToast={showToast}
         authUser={authUser}
