@@ -36,6 +36,8 @@ import {
   ShieldCheck,
   FileText,
   Square,
+  ArrowLeftRight,
+  Bookmark,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { generateJUnitTestSuite } from '../../lib/junit-generator';
@@ -66,6 +68,7 @@ export default function TranspilerStudio({
   onTranspile = () => {},
   onCancelTranspile = () => {},
   onNewConversion = () => {},
+  onSaveProject = () => {},
   onClearEditor = () => {},
   executionStdout = '',
   onDownloadJava = () => {},
@@ -621,6 +624,16 @@ export default function TranspilerStudio({
             {settings.autoSaveDraft ? autoSaveStatus : 'Draft saving off'}
           </span>
 
+          <button
+            onClick={onSaveProject}
+            disabled={!pythonCode?.trim()}
+            className="t-btn-primary px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-45"
+            title="Save project snapshot to History"
+          >
+            <Bookmark className="w-3 h-3" />
+            <span>Save Project</span>
+          </button>
+
           <div className="relative">
             <button
               onClick={() => setExportMenuOpen((v) => !v)}
@@ -1082,13 +1095,25 @@ export default function TranspilerStudio({
           </div>
         </div>
 
-        {/* Drag Divider */}
+        {/* Drag Divider + Center Bidirectional Quick-Convert Emblem */}
         <div
           onMouseDown={handleStartSplitDrag}
-          className="hidden lg:block w-1 cursor-col-resize hover:bg-indigo-500/60 transition shrink-0"
+          className="hidden lg:flex relative w-1.5 cursor-col-resize items-center justify-center hover:bg-indigo-500/40 transition shrink-0"
           style={{ backgroundColor: 'var(--border-color)' }}
           title="Drag to resize editors"
-        />
+        >
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => onTranspile({ verify: true })}
+            disabled={!pythonCode?.trim() || isTranspiling}
+            className="absolute z-20 w-7 h-7 rounded-full t-btn-primary flex items-center justify-center cursor-pointer disabled:opacity-45"
+            title="Convert & Verify Python -> Java"
+            aria-label="Quick Convert"
+          >
+            {isTranspiling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowLeftRight className="w-3.5 h-3.5" />}
+          </button>
+        </div>
 
         {/* RIGHT PANE: Editable Java Output */}
         <div

@@ -115,4 +115,7 @@ test('Sprint UI Cleanup: zero legacy 3-UI themes or UI PRESETS remain in app wor
   assert.equal(css.includes('cupertino') || css.includes('brutalist') || css.includes('carbon'), false);
   assert.equal(pageSrc.includes('PRESETS'), false);
   assert.equal(navSrc.includes('Cupertino') || navSrc.includes('Brutalist') || navSrc.includes('OLED Carbon'), false);
+  assert.ok(css.includes('[data-accent="emerald"]'));
+  assert.ok(fs.existsSync('app/components/ShowcaseViews.jsx'));
+  assert.ok(fs.existsSync('app/components/BrandMark.jsx'));
 });

@@ -25,6 +25,7 @@ export default function CodeComparisonPage() {
   const [pythonCode, setPythonCode] = useState(DEFAULT_PY);
   const [authUser, setAuthUser] = useState(null);
   const [theme, setTheme] = useState('dark');
+  const [accent, setAccent] = useState('violet');
 
   useEffect(() => {
     let active = true;
@@ -34,9 +35,9 @@ export default function CodeComparisonPage() {
         if (!active) return;
         try {
           const savedTheme = localStorage.getItem('jforge_theme');
-          if (savedTheme && ['dark', 'light'].includes(savedTheme)) {
-            setTheme(savedTheme);
-          }
+          if (savedTheme && ['dark', 'light'].includes(savedTheme)) setTheme(savedTheme);
+          const savedAccent = localStorage.getItem('jforge_accent');
+          if (savedAccent && ['violet', 'emerald', 'sky', 'amber', 'rose'].includes(savedAccent)) setAccent(savedAccent);
         } catch {
           // Ignore storage errors
         }
@@ -56,6 +57,7 @@ export default function CodeComparisonPage() {
   return (
     <main
       data-theme={theme}
+      data-accent={accent}
       className="min-h-screen flex flex-col font-sans"
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}
     >

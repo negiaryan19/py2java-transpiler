@@ -2,13 +2,14 @@
 
 import React, { useState } from 'react';
 import {
+  LayoutDashboard,
   ArrowLeftRight,
-  FolderCode,
-  History,
-  FlaskConical,
-  GitCompare,
-  BarChart3,
   Sparkles,
+  ShieldCheck,
+  BarChart3,
+  FolderKanban,
+  GitCompare,
+  FlaskConical,
   Settings,
   BookOpen,
   Terminal,
@@ -19,46 +20,41 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  User,
+  Bell,
 } from 'lucide-react';
+import BrandMark from './BrandMark';
 
 export default function Navigation({
   theme = 'dark',
   onToggleTheme = () => {},
+  onOpenHome = () => {},
   onOpenCommandPalette = () => {},
   onOpenSettings = () => {},
-  onToggleAssistant = () => {},
-  assistantOpen = false,
+  onOpenVerification = () => {},
+  verificationReport = null,
   authUser = null,
   onLogout = () => {},
 }) {
   return (
     <header
-      className="h-12 px-3 sm:px-4 t-border-b flex items-center justify-between sticky top-0 z-30 shrink-0"
-      style={{ backgroundColor: 'var(--bg-surface)' }}
+      className="h-12 px-3 sm:px-4 t-border-b flex items-center justify-between sticky top-0 z-30 shrink-0 backdrop-blur-md"
+      style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 88%, transparent)' }}
     >
       {/* Left: Brand Identity */}
-      <div className="flex items-center gap-2.5">
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center font-mono font-bold text-xs tracking-tight text-white shrink-0"
-          style={{ backgroundColor: 'var(--primary-bg)' }}
-        >
-          JF
-        </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-semibold tracking-tight text-sm heading-font">J-Forge</span>
-          <span className="text-xs hidden sm:inline" style={{ color: 'var(--text-secondary)' }}>
-            Studio
-          </span>
-        </div>
-      </div>
+      <button
+        onClick={onOpenHome}
+        className="flex items-center cursor-pointer hover:opacity-90 transition"
+        title="J-Forge Welcome & Overview"
+      >
+        <BrandMark size="md" subtitle="Studio" />
+      </button>
 
-      {/* Right: Compact IDE Utility Actions */}
+      {/* Right: Utility Controls */}
       <div className="flex items-center gap-1.5">
         <button
           onClick={onOpenCommandPalette}
-          className="t-btn-secondary px-2 py-1 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
-          title="Open Command Palette (Cmd/Ctrl + K)"
+          className="t-btn-secondary px-2.5 py-1 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+          title="Command Palette (Cmd/Ctrl + K)"
           aria-label="Command Palette"
         >
           <Search className="w-3.5 h-3.5" style={{ color: 'var(--text-secondary)' }} />
@@ -69,15 +65,19 @@ export default function Navigation({
         </button>
 
         <button
-          onClick={onToggleAssistant}
-          className={`px-2 py-1 text-xs font-mono rounded flex items-center gap-1 cursor-pointer transition border ${
-            assistantOpen ? 't-btn-primary' : 't-btn-secondary'
-          }`}
-          title="Toggle Context-Aware AI Assistant"
-          aria-label="AI Assistant"
+          onClick={onOpenVerification}
+          className="relative p-1.5 t-btn-secondary cursor-pointer hidden sm:flex items-center justify-center"
+          title={verificationReport ? `Verification: ${verificationReport.status}` : 'Verification Studio'}
+          aria-label="Verification Status"
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline text-[11px]">Assistant</span>
+          <Bell className="w-3.5 h-3.5" />
+          {verificationReport && (
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                verificationReport.outputMatch ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}
+            />
+          )}
         </button>
 
         <a
@@ -85,7 +85,7 @@ export default function Navigation({
           target="_blank"
           rel="noopener noreferrer"
           className="p-1.5 t-btn-secondary cursor-pointer hidden sm:flex items-center justify-center"
-          title="J-Forge Repository on GitHub"
+          title="J-Forge on GitHub"
           aria-label="GitHub Repository"
         >
           <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
@@ -97,7 +97,7 @@ export default function Navigation({
           onClick={onToggleTheme}
           className="p-1.5 t-btn-secondary cursor-pointer flex items-center justify-center"
           title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          aria-label="Toggle Color Theme"
+          aria-label="Toggle Theme"
         >
           {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
         </button>
@@ -115,7 +115,7 @@ export default function Navigation({
           <div className="flex items-center gap-1">
             <span
               className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white cursor-default"
-              style={{ backgroundColor: 'var(--primary-bg)' }}
+              style={{ backgroundImage: 'linear-gradient(135deg, var(--primary-bg), var(--primary-hover))' }}
               title={[authUser.name, authUser.email, authUser.role].filter(Boolean).join(' · ')}
             >
               {(authUser.name || authUser.email || 'U').charAt(0).toUpperCase()}
@@ -132,12 +132,10 @@ export default function Navigation({
         ) : (
           <a
             href="/login"
-            className="t-btn-primary px-2.5 py-1 text-xs font-mono flex items-center gap-1 cursor-pointer"
-            title="Sign in or create account"
+            className="t-btn-primary px-3 py-1 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            <LogIn className="w-3 h-3 sm:hidden" />
-            <User className="w-3 h-3 hidden sm:inline" />
-            <span className="hidden sm:inline">Sign In</span>
+            <LogIn className="w-3 h-3" />
+            <span>Sign In</span>
           </a>
         )}
       </div>
@@ -146,26 +144,26 @@ export default function Navigation({
 }
 
 const PRIMARY_NAV = [
-  { id: 'studio', label: 'Converter', icon: ArrowLeftRight, tip: 'Python to Java Workspace' },
-  { id: 'files', label: 'Files', icon: FolderCode, tip: 'Workspace Source Tabs' },
-  { id: 'history', label: 'History', icon: History, tip: 'Saved Conversions & Versions' },
-  { id: 'tests', label: 'Unit Tests', icon: FlaskConical, tip: 'JUnit 5 Generation' },
-  { id: 'comparison', label: 'AST Diff', icon: GitCompare, tip: 'Python vs Java Structural Comparison' },
-  { id: 'analysis', label: 'Analysis', icon: BarChart3, tip: 'Compatibility, Dependencies & Quality' },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, tip: 'Workspace Dashboard' },
+  { id: 'studio', label: 'Conversion Studio', icon: ArrowLeftRight, tip: 'Python to Java Converter' },
+  { id: 'assistant', label: 'AI Assistant', icon: Sparkles, tip: 'Context-Aware AI Assistant' },
+  { id: 'verification', label: 'Verification Studio', icon: ShieldCheck, tip: 'Compile, Run & Verify' },
+  { id: 'analysis', label: 'Code Analysis', icon: BarChart3, tip: 'Compatibility, Dependencies & Quality' },
+  { id: 'history', label: 'Projects & History', icon: FolderKanban, tip: 'Saved Projects & Workspace Files' },
+  { id: 'tests', label: 'Unit Tests', icon: FlaskConical, tip: 'JUnit 5 Generator' },
+  { id: 'comparison', label: 'AST Diff', icon: GitCompare, tip: 'Python vs Java Structural Diff' },
 ];
 
 const SECONDARY_NAV = [
-  { id: 'playground', label: 'API Gateway', icon: Terminal, tip: 'REST API Playground & Webhooks' },
-  { id: 'docs', label: 'Documentation', icon: BookOpen, tip: 'Documentation & Reference' },
-  { id: 'settings', label: 'Settings', icon: Settings, tip: 'Editor & Workspace Settings' },
+  { id: 'playground', label: 'API Gateway', icon: Terminal, tip: 'REST API & Webhooks' },
+  { id: 'docs', label: 'Documentation', icon: BookOpen, tip: 'Documentation' },
+  { id: 'settings', label: 'Settings', icon: Settings, tip: 'Appearance, Editor & Preferences' },
 ];
 
 export function SidebarRail({
   activeView,
   setActiveView,
-  onToggleAssistant = () => {},
-  assistantOpen = false,
-  collapsed = true,
+  collapsed = false,
   onToggleCollapse = () => {},
 }) {
   const [hoverLabel, setHoverLabel] = useState(null);
@@ -173,12 +171,12 @@ export function SidebarRail({
   return (
     <aside
       className={`t-border-r shrink-0 flex flex-row lg:flex-col justify-between transition-all duration-150 ${
-        collapsed ? 'lg:w-12' : 'lg:w-48'
+        collapsed ? 'lg:w-14' : 'lg:w-52'
       }`}
       style={{ backgroundColor: 'var(--bg-surface)' }}
     >
-      {/* Primary Navigation */}
-      <div className="p-1.5 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible flex-1">
+      {/* Primary Navigation matching Showcase Sidebar */}
+      <div className="p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible flex-1">
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon;
           const active = activeView === item.id;
@@ -196,28 +194,17 @@ export function SidebarRail({
               <Icon className="w-4 h-4 shrink-0" />
               {!collapsed && <span className="truncate font-medium">{item.label}</span>}
               {collapsed && hoverLabel === item.id && (
-                <span className="hidden lg:block absolute left-12 z-50 px-2 py-1 text-[11px] font-mono rounded t-surface whitespace-nowrap shadow-lg pointer-events-none">
+                <span className="hidden lg:block absolute left-14 z-50 px-2.5 py-1 text-[11px] font-mono rounded t-surface whitespace-nowrap shadow-xl pointer-events-none">
                   {item.label}
                 </span>
               )}
             </button>
           );
         })}
-
-        <button
-          onClick={onToggleAssistant}
-          title="AI Assistant Panel"
-          className={`nav-item px-2.5 py-2 text-xs flex items-center gap-2.5 shrink-0 cursor-pointer ${
-            assistantOpen ? 'active' : ''
-          } ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
-        >
-          <Sparkles className="w-4 h-4 shrink-0 text-indigo-400" />
-          {!collapsed && <span className="truncate font-medium">AI Assistant</span>}
-        </button>
       </div>
 
-      {/* Secondary Navigation + Collapse */}
-      <div className="p-1.5 hidden lg:flex flex-col gap-1 t-border-t">
+      {/* Bottom Secondary Links & Collapse Toggle */}
+      <div className="p-2 hidden lg:flex flex-col gap-1 t-border-t">
         {SECONDARY_NAV.map((item) => {
           const Icon = item.icon;
           const active = activeView === item.id;
@@ -244,7 +231,7 @@ export function SidebarRail({
           }`}
         >
           {collapsed ? <PanelLeftOpen className="w-4 h-4 shrink-0" /> : <PanelLeftClose className="w-4 h-4 shrink-0" />}
-          {!collapsed && <span className="text-[11px] opacity-80">Collapse</span>}
+          {!collapsed && <span className="text-[11px] opacity-75">Collapse</span>}
         </button>
       </div>
     </aside>

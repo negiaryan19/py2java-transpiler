@@ -3,32 +3,33 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   J-FORGE DEVELOPER STUDIO DESIGN SYSTEM (Dark Default + Crisp Light Mode)
-   Clean IDE/Linear/JetBrains inspired workspace tokens
+   J-FORGE COSMIC OBSIDIAN & VIOLET DESIGN SYSTEM
+   Dark (Default) + Light Theme + User-Configurable Accent Color Swatches
    ========================================================================== */
 :root,
 [data-theme="dark"] {
-  --bg-app: #0C0D12;
-  --bg-surface: #13151C;
-  --bg-subtle: #1A1D26;
-  --bg-editor: #0E1016;
-  --bg-gutter: #101219;
-  --text-main: #F4F4F6;
-  --text-secondary: #A1A7B5;
-  --text-muted: #646B7C;
-  --border-color: #242836;
+  --bg-app: #070711;
+  --bg-surface: #0D0E1B;
+  --bg-subtle: #141528;
+  --bg-editor: #090A15;
+  --bg-gutter: #0B0C18;
+  --text-main: #F4F5FA;
+  --text-secondary: #9CA3B8;
+  --text-muted: #646B84;
+  --border-color: #212340;
   --border-width: 1px;
-  --radius-card: 8px;
-  --radius-btn: 6px;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --primary-bg: #6E74FF;
+  --radius-card: 10px;
+  --radius-btn: 8px;
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --shadow-btn: 0 2px 10px rgba(109, 40, 217, 0.22);
+  --primary-bg: #7C3AED;
   --primary-text: #FFFFFF;
-  --primary-hover: #5C62EC;
-  --accent-badge-bg: #1E2235;
-  --accent-badge-text: #A5B4FC;
-  --code-py: #E4E7EF;
-  --code-java: #D4F5E9;
+  --primary-hover: #6366F1;
+  --primary-glow: rgba(124, 58, 237, 0.22);
+  --accent-badge-bg: #1B193D;
+  --accent-badge-text: #C4B5FD;
+  --code-py: #E6E9F4;
+  --code-java: #D1FAE5;
   --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -43,25 +44,48 @@
   --text-muted: #94A3B8;
   --border-color: #E2E8F0;
   --border-width: 1px;
-  --radius-card: 8px;
-  --radius-btn: 6px;
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-btn: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --primary-bg: #4F46E5;
+  --radius-card: 10px;
+  --radius-btn: 8px;
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-btn: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --primary-bg: #6D28D9;
   --primary-text: #FFFFFF;
-  --primary-hover: #4338CA;
-  --accent-badge-bg: #EEF2FF;
-  --accent-badge-text: #4338CA;
+  --primary-hover: #4F46E5;
+  --primary-glow: rgba(109, 40, 217, 0.14);
+  --accent-badge-bg: #EDE9FE;
+  --accent-badge-text: #5B21B6;
   --code-py: #0F172A;
   --code-java: #065F46;
   --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Dynamic Accent Swatches (controlled cleanly from Settings) */
+[data-accent="emerald"] {
+  --primary-bg: #10B981;
+  --primary-hover: #059669;
+  --primary-glow: rgba(16, 185, 129, 0.22);
+}
+[data-accent="sky"] {
+  --primary-bg: #0EA5E9;
+  --primary-hover: #0284C7;
+  --primary-glow: rgba(14, 165, 233, 0.22);
+}
+[data-accent="amber"] {
+  --primary-bg: #D97706;
+  --primary-hover: #B45309;
+  --primary-glow: rgba(217, 119, 6, 0.22);
+}
+[data-accent="rose"] {
+  --primary-bg: #E11D48;
+  --primary-hover: #BE123C;
+  --primary-glow: rgba(225, 29, 72, 0.22);
 }
 
 body {
   background-color: var(--bg-app);
   color: var(--text-main);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  transition: background-color 0.14s ease, color 0.14s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
   overflow-x: hidden;
 }
 
@@ -78,7 +102,13 @@ h1, h2, h3, .heading-font {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Studio Surface & Borders */
+.cosmic-backdrop {
+  background-image:
+    radial-gradient(ellipse 65% 45% at 50% 0%, var(--primary-glow), transparent 70%),
+    radial-gradient(circle at 85% 20%, rgba(99, 102, 241, 0.08), transparent 45%);
+}
+
+/* Studio Surfaces & Borders */
 .t-surface {
   background-color: var(--bg-surface);
   border: var(--border-width) solid var(--border-color);
@@ -108,18 +138,19 @@ h1, h2, h3, .heading-font {
   border: var(--border-width) solid var(--border-color);
 }
 
-/* Primary & Secondary Controls */
+/* Primary & Secondary Actions */
 .t-btn-primary {
+  background-image: linear-gradient(135deg, var(--primary-bg), var(--primary-hover));
   background-color: var(--primary-bg);
   color: var(--primary-text);
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-btn);
-  box-shadow: var(--shadow-btn);
+  box-shadow: 0 2px 14px var(--primary-glow);
   font-weight: 600;
-  transition: background-color 0.12s ease, opacity 0.12s ease;
+  transition: filter 0.12s ease, transform 0.1s ease;
 }
 .t-btn-primary:hover {
-  background-color: var(--primary-hover);
+  filter: brightness(1.08);
 }
 
 .t-btn-secondary {
@@ -135,12 +166,12 @@ h1, h2, h3, .heading-font {
   background-color: var(--bg-subtle);
 }
 
-/* Sidebar Navigation */
+/* Sidebar Navigation Item */
 .nav-item {
   color: var(--text-secondary);
   border-radius: var(--radius-btn);
   border: 1px solid transparent;
-  transition: background-color 0.12s ease, color 0.12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 .nav-item:hover {
   background-color: var(--bg-subtle);
@@ -149,11 +180,12 @@ h1, h2, h3, .heading-font {
 .nav-item.active {
   background-color: var(--bg-subtle);
   color: var(--text-main);
-  border-color: var(--border-color);
+  border-color: var(--primary-bg);
+  box-shadow: inset 0 0 0 1px var(--primary-glow);
   font-weight: 600;
 }
 
-/* Editor Areas */
+/* Code Editors */
 .editor-area {
   background-color: var(--bg-editor);
   color: var(--code-py);

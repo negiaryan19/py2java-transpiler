@@ -3,13 +3,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Navigation, { SidebarRail } from './components/Navigation';
 import TranspilerStudio from './components/TranspilerStudio';
-import AssistantPanel from './components/AssistantPanel';
 import CommandPalette from './components/CommandPalette';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
 import CodeComparisonView from './components/CodeComparisonView';
 import AuthModal from './components/AuthModal';
+import {
+  LandingHeroView,
+  DashboardWorkspaceView,
+  VerificationStudioView,
+  AssistantWorkspaceView,
+} from './components/ShowcaseViews';
 import {
   FilesWorkspaceView,
   HistoryWorkspaceView,
@@ -27,6 +32,7 @@ import { generateJUnitTestSuite } from '../lib/junit-generator';
 
 const DEFAULT_SETTINGS = {
   theme: 'dark',
+  accent: 'violet',
   defaultJavaVersion: 'Java 21 LTS',
   defaultMode: 'strict',
   fontSize: 13,
@@ -72,14 +78,13 @@ function computeProgramStdout(pyCode) {
 }
 
 export default function JForgeOrchestrator() {
-  // Settings & Clean Dark/Light Theme (Old 3-UI themes removed)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [activeView, setActiveView] = useState('studio');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  // Start on Landing Hero showcase ('landing') when empty; restores into 'studio' automatically if user had a saved draft
+  const [activeView, setActiveView] = useState('landing');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-  // Clean Empty Workspace State (Zero auto-loaded presets)
+  // Clean Empty Studio State (Zero presets auto-loaded)
   const [workspaceFiles, setWorkspaceFiles] = useState([
     {
       id: 'tab_1',
@@ -126,7 +131,7 @@ export default function JForgeOrchestrator() {
   const [generatedUnitTest, setGeneratedUnitTest] = useState('');
   const [isGeneratingTests, setIsGeneratingTests] = useState(false);
 
-  // Gateway & Webhook State
+  // API Playground & Webhook State
   const [pgApiKey, setPgApiKey] = useState('');
   const [pgRequestBody, setPgRequestBody] = useState(
     JSON.stringify(
@@ -152,7 +157,7 @@ export default function JForgeOrchestrator() {
   const [webhookDeliveries, setWebhookDeliveries] = useState([INITIAL_SAMPLE_WEBHOOK]);
   const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
 
-  // Toast State (declared early before helpers to avoid use-before-define)
+  // Toast State
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [copiedId, setCopiedId] = useState(null);
   const toastTimerRef = useRef(null);
@@ -204,9 +209,8 @@ export default function JForgeOrchestrator() {
       const next = { ...prev, [key]: value };
       try {
         localStorage.setItem('jforge_settings', JSON.stringify(next));
-        if (key === 'theme') {
-          localStorage.setItem('jforge_theme', value);
-        }
+        if (key === 'theme') localStorage.setItem('jforge_theme', value);
+        if (key === 'accent') localStorage.setItem('jforge_accent', value);
       } catch {
         // Ignore storage errors
       }
@@ -223,10 +227,10 @@ export default function JForgeOrchestrator() {
     }
     if (!authUser) setHistory([]);
     setAutoSaveStatus('Local data cleared');
-    showToast('Cleared local drafts & browser history');
+    showToast('Cleared local drafts & history');
   };
 
-  // Load session, settings, local draft (no API secrets stored), and server history asynchronously
+  // Load session, theme/accent settings, local draft, and history asynchronously
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams(window.location.search);
@@ -247,7 +251,10 @@ export default function JForgeOrchestrator() {
           const parsedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
           if (parsedSettings && typeof parsedSettings === 'object') {
             const cleanTheme = ['dark', 'light'].includes(parsedSettings.theme) ? parsedSettings.theme : 'dark';
-            setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings, theme: cleanTheme });
+            const cleanAccent = ['violet', 'emerald', 'sky', 'amber', 'rose'].includes(parsedSettings.accent)
+              ? parsedSettings.accent
+              : 'violet';
+            setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings, theme: cleanTheme, accent: cleanAccent });
             if (parsedSettings.defaultJavaVersion) setJavaTargetVersion(parsedSettings.defaultJavaVersion);
             if (parsedSettings.defaultMode) setConversionMode(parsedSettings.defaultMode);
           }
@@ -261,6 +268,7 @@ export default function JForgeOrchestrator() {
                 setPythonCode(draft.pythonCode || '');
                 setJavaCode(draft.javaCode || '');
                 if (draft.javaTargetVersion) setJavaTargetVersion(draft.javaTargetVersion);
+                setActiveView('studio');
                 setAutoSaveStatus('Restored local draft');
               }
             }
@@ -307,7 +315,7 @@ export default function JForgeOrchestrator() {
     };
   }, []);
 
-  // Debounced auto-save for current conversion draft (never stores API keys or credentials)
+  // Debounced auto-save draft (never stores API keys or credentials)
   useEffect(() => {
     if (!settings.autoSaveDraft) return;
     const timer = setTimeout(() => {
@@ -335,13 +343,13 @@ export default function JForgeOrchestrator() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {
-      // Clear client state cleanly
+      // Clear client session cleanly
     }
     setAuthUser(null);
     showToast('Signed out of J-Forge Studio');
   };
 
-  // Workspace multi-file switcher
+  // Workspace multi-tab buffers
   const handleSelectWorkspaceFile = (fileId) => {
     setWorkspaceFiles((prev) =>
       prev.map((f) =>
@@ -395,7 +403,41 @@ export default function JForgeOrchestrator() {
     }
   };
 
-  // History CRUD & Versioning
+  const saveCurrentSnapshot = (pySrc = pythonCode, jSrc = javaCode, statusLabel = null) => {
+    if (!pySrc.trim()) return;
+    const newEntry = {
+      id: `hist_${Date.now()}`,
+      label:
+        conversionTitle !== 'Untitled conversion'
+          ? conversionTitle
+          : pySrc.split('\n').find((l) => l.trim())?.trim().slice(0, 42) || 'Python Script',
+      pythonCode: pySrc,
+      javaCode: jSrc,
+      javaTargetVersion,
+      ...(statusLabel ? { verifiedStatus: statusLabel } : {}),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setHistory((prev) => {
+      const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pySrc)].slice(0, 25);
+      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (authUser) {
+      fetch('/api/history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          label: newEntry.label,
+          pythonCode: pySrc,
+          javaCode: jSrc,
+          javaTargetVersion,
+        }),
+      }).catch(() => {});
+    }
+    showToast('Saved conversion to history');
+  };
+
+  // History CRUD
   const handleRenameHistory = async (id, newLabel) => {
     const clean = String(newLabel || '').trim().slice(0, 80);
     if (!clean) return;
@@ -411,7 +453,7 @@ export default function JForgeOrchestrator() {
         body: JSON.stringify({ id, label: clean }),
       }).catch(() => {});
     }
-    showToast('Renamed conversion');
+    showToast('Renamed project');
   };
 
   const handleDeleteHistory = async (id) => {
@@ -427,7 +469,7 @@ export default function JForgeOrchestrator() {
         body: JSON.stringify({ id }),
       }).catch(() => {});
     }
-    showToast('Deleted conversion from history');
+    showToast('Deleted project from history');
   };
 
   const handleDuplicateHistory = (item) => {
@@ -442,7 +484,7 @@ export default function JForgeOrchestrator() {
       try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
       return next;
     });
-    showToast('Duplicated history snapshot');
+    showToast('Duplicated snapshot');
   };
 
   const handleToggleFavorite = (id) => {
@@ -453,7 +495,6 @@ export default function JForgeOrchestrator() {
     });
   };
 
-  // Webhooks
   const recordWebhookDelivery = async (eventType, statusCode, pySnippet, javaSnippet, latencyMs, serverDelivery = null) => {
     if (serverDelivery?.headers && serverDelivery?.payload) {
       const entry = {
@@ -487,7 +528,6 @@ export default function JForgeOrchestrator() {
     return null;
   };
 
-  // Automatic javac Repair (Max 3 Attempts)
   const handleRepairJava = async (
     pyCode = pythonCode,
     jCode = javaCode,
@@ -534,7 +574,6 @@ export default function JForgeOrchestrator() {
     }
   };
 
-  // Real Semantic Verification (CPython 3.13 + OpenJDK 21)
   const runVerification = async (pyCode, jCode, stdinVal = '', casesOverride = multiTestCases) => {
     if (!pyCode?.trim() || !jCode?.trim()) return null;
     const ctrl = new AbortController();
@@ -600,7 +639,6 @@ export default function JForgeOrchestrator() {
     showToast('Conversion cancelled');
   };
 
-  // Primary Transpile + Optional Verify Pipeline
   const handleTranspile = async ({ verify = true } = {}) => {
     const trimmed = pythonCode.trim();
     if (!trimmed) {
@@ -634,34 +672,7 @@ export default function JForgeOrchestrator() {
         if (actionRes.self_healing) setSelfHealing(actionRes.self_healing);
 
         const elapsedMs = Math.max(10, Math.round(performance.now() - startTime));
-        const newEntry = {
-          id: `hist_${Date.now()}`,
-          label:
-            conversionTitle !== 'Untitled conversion'
-              ? conversionTitle
-              : pythonCode.split('\n').find((l) => l.trim())?.trim().slice(0, 42) || 'Python Script',
-          pythonCode,
-          javaCode: javaResult,
-          javaTargetVersion,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setHistory((prev) => {
-          const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 25);
-          try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
-          return next;
-        });
-        if (authUser) {
-          fetch('/api/history', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              label: newEntry.label,
-              pythonCode,
-              javaCode: javaResult,
-              javaTargetVersion,
-            }),
-          }).catch(() => {});
-        }
+        saveCurrentSnapshot(pythonCode, javaResult);
         void recordWebhookDelivery(
           'code.conversion.completed',
           actionRes?.webhook_delivery?.status_code || 200,
@@ -693,7 +704,7 @@ export default function JForgeOrchestrator() {
     setJavaCode('');
     setExecutionStdout('');
     setVerificationReport(null);
-    showToast('Workspace editors cleared');
+    showToast('Editors cleared');
   };
 
   const handleDownloadJava = () => {
@@ -730,7 +741,7 @@ export default function JForgeOrchestrator() {
     }
   };
 
-  // Global Shortcuts: Cmd/Ctrl + Enter & Cmd/Ctrl + K
+  // Keyboard shortcuts
   const actionsRef = useRef({ handleTranspile });
   useEffect(() => {
     actionsRef.current = { handleTranspile };
@@ -750,26 +761,24 @@ export default function JForgeOrchestrator() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Command Palette Items
   const commands = useMemo(
     () => [
+      { id: 'dashboard', category: 'View', label: 'Open Dashboard', run: () => setActiveView('dashboard') },
+      { id: 'studio', category: 'View', label: 'Open Conversion Studio', run: () => setActiveView('studio') },
       { id: 'convert-verify', category: 'Run', label: 'Convert & Verify Code', shortcut: '⌘↵', disabled: !pythonCode.trim(), run: () => handleTranspile({ verify: true }) },
-      { id: 'convert-only', category: 'Run', label: 'Convert Only (Skip Sandbox)', disabled: !pythonCode.trim(), run: () => handleTranspile({ verify: false }) },
+      { id: 'verification', category: 'View', label: 'Open Verification Studio', run: () => setActiveView('verification') },
+      { id: 'assistant', category: 'AI', label: 'Open AI Assistant', run: () => setActiveView('assistant') },
+      { id: 'analysis', category: 'View', label: 'Open Code Analysis', run: () => setActiveView('analysis') },
+      { id: 'history', category: 'View', label: 'Open Projects & History', run: () => setActiveView('history') },
       { id: 'new-conv', category: 'File', label: 'New Blank Conversion', run: handleCreateWorkspaceFile },
-      { id: 'assistant', category: 'AI', label: assistantOpen ? 'Hide AI Assistant' : 'Open AI Assistant', run: () => setAssistantOpen((v) => !v) },
-      { id: 'ast-diff', category: 'View', label: 'Open Python vs Java AST Diff', run: () => setActiveView('comparison') },
-      { id: 'analysis', category: 'View', label: 'Open Compatibility, Dependencies & Quality', run: () => setActiveView('analysis') },
-      { id: 'history', category: 'View', label: 'Open Conversion History', run: () => setActiveView('history') },
-      { id: 'tests', category: 'View', label: 'Open JUnit 5 Unit Tests', run: () => setActiveView('tests') },
-      { id: 'download-java', category: 'Export', label: 'Download Java Source (.java)', run: handleDownloadJava },
       { id: 'toggle-theme', category: 'Theme', label: settings.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode', run: () => updateSetting('theme', settings.theme === 'dark' ? 'light' : 'dark') },
-      { id: 'settings', category: 'View', label: 'Open Studio Settings', run: () => setActiveView('settings') },
+      { id: 'settings', category: 'View', label: 'Open Settings', run: () => setActiveView('settings') },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pythonCode, assistantOpen, settings.theme]
+    [pythonCode, settings.theme]
   );
 
-  // API Playground helpers
+  // API Gateway handlers
   const generatedCurl = useMemo(() => {
     const clean = (pgRequestBody || '').replace(/\n/g, ' ');
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://py2java-transpiler.vercel.app';
@@ -788,7 +797,6 @@ export default function JForgeOrchestrator() {
 
   const handleExecutePlayground = async () => {
     setIsPgLoading(true);
-    const start = performance.now();
     try {
       let parsedBody;
       try {
@@ -798,6 +806,7 @@ export default function JForgeOrchestrator() {
         setPgResponseBody(JSON.stringify({ error: 'Malformed JSON', message: err.message }, null, 2));
         return;
       }
+      const start = performance.now();
       const res = await fetch('/api/v1/convert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': pgApiKey },
@@ -817,7 +826,7 @@ export default function JForgeOrchestrator() {
   };
 
   const handleDownloadReadme = () => {
-    const md = `# J-Forge Studio\nPython 3 to Java LTS Conversion, Static Compatibility Scanning & Verification IDE.`;
+    const md = `# J-Forge Studio\nPython 3 to Java LTS Conversion, Verification, Compatibility & Code Analysis Workspace.`;
     const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -829,235 +838,281 @@ export default function JForgeOrchestrator() {
   return (
     <div
       data-theme={settings.theme}
+      data-accent={settings.accent || 'violet'}
       className={`min-h-screen flex flex-col antialiased ${settings.reducedMotion ? 'reduced-motion' : ''}`}
       style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}
     >
-      {/* Top IDE Bar */}
+      {/* Top Bar */}
       <Navigation
         theme={settings.theme}
         onToggleTheme={() => updateSetting('theme', settings.theme === 'dark' ? 'light' : 'dark')}
+        onOpenHome={() => setActiveView('landing')}
         onOpenCommandPalette={() => setCommandPaletteOpen(true)}
         onOpenSettings={() => setActiveView('settings')}
-        onToggleAssistant={() => setAssistantOpen((v) => !v)}
-        assistantOpen={assistantOpen}
+        onOpenVerification={() => setActiveView('verification')}
+        verificationReport={verificationReport}
         authUser={authUser}
         onLogout={handleLogout}
       />
 
-      {/* Main Studio Shell */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-3rem)]">
-        <SidebarRail
-          activeView={activeView}
-          setActiveView={setActiveView}
-          assistantOpen={assistantOpen}
-          onToggleAssistant={() => setAssistantOpen((v) => !v)}
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+      {activeView === 'landing' ? (
+        <LandingHeroView
+          authUser={authUser}
+          onStartConverting={() => setActiveView('studio')}
+          onOpenDashboard={() => setActiveView('dashboard')}
+          onOpenDocs={() => setActiveView('docs')}
         />
+      ) : (
+        <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-3rem)]">
+          <SidebarRail
+            activeView={activeView}
+            setActiveView={setActiveView}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          />
 
-        <main className="flex-1 p-3 sm:p-4 lg:p-5 overflow-y-auto min-w-0 max-w-[1600px] w-full mx-auto">
-          {activeView === 'studio' && (
-            <TranspilerStudio
-              conversionTitle={conversionTitle}
-              onChangeTitle={setConversionTitle}
-              pythonCode={pythonCode}
-              setPythonCode={setPythonCode}
-              javaCode={javaCode}
-              setJavaCode={setJavaCode}
-              javaTargetVersion={javaTargetVersion}
-              setJavaTargetVersion={setJavaTargetVersion}
-              conversionMode={conversionMode}
-              setConversionMode={setConversionMode}
-              conversionConfig={conversionConfig}
-              setConversionConfig={setConversionConfig}
-              additionalInstructions={additionalInstructions}
-              setAdditionalInstructions={setAdditionalInstructions}
-              isTranspiling={isTranspiling}
-              onTranspile={handleTranspile}
-              onCancelTranspile={handleCancelTranspile}
-              onNewConversion={handleCreateWorkspaceFile}
-              onClearEditor={handleClearEditor}
-              executionStdout={executionStdout}
-              onDownloadJava={handleDownloadJava}
-              copyToClipboard={copyToClipboard}
-              copiedId={copiedId}
-              bypassCache={bypassCache}
-              setBypassCache={setBypassCache}
-              selfHealing={selfHealing}
-              verificationReport={verificationReport}
-              isVerifying={isVerifying}
-              isRepairing={isRepairing}
-              onRepairJava={() => handleRepairJava()}
-              onApplyJavaEdit={applyJavaChangeWithUndo}
-              canUndoJava={Boolean(previousJavaCode)}
-              onUndoJava={handleUndoJava}
-              programStdin={programStdin}
-              setProgramStdin={setProgramStdin}
-              multiTestCases={multiTestCases}
-              setMultiTestCases={setMultiTestCases}
-              onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin, multiTestCases)}
-              selectedPython={selectedPython}
-              onSelectPython={setSelectedPython}
-              settings={settings}
-              autoSaveStatus={autoSaveStatus}
-              history={history}
-              onRestoreHistory={(entry) => {
-                setConversionTitle(entry.label || 'Untitled conversion');
-                setPythonCode(entry.pythonCode || '');
-                setJavaCode(entry.javaCode || '');
-                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
-                setExecutionStdout(computeProgramStdout(entry.pythonCode));
-                setVerificationReport(null);
-                showToast('Restored from history');
-              }}
-              onToggleAssistant={() => setAssistantOpen((v) => !v)}
-            />
-          )}
+          <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-y-auto min-w-0 max-w-[1600px] w-full mx-auto">
+            {activeView === 'dashboard' && (
+              <DashboardWorkspaceView
+                authUser={authUser}
+                history={history}
+                workspaceFiles={workspaceFiles}
+                verificationReport={verificationReport}
+                onNewConversion={handleCreateWorkspaceFile}
+                onOpenStudio={() => setActiveView('studio')}
+                onOpenAssistant={() => setActiveView('assistant')}
+                onOpenHistory={() => setActiveView('history')}
+                onOpenAnalysis={() => setActiveView('analysis')}
+                onRestoreHistory={(entry) => {
+                  setConversionTitle(entry.label || 'Untitled conversion');
+                  setPythonCode(entry.pythonCode || '');
+                  setJavaCode(entry.javaCode || '');
+                  if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                  setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                }}
+              />
+            )}
 
-          {activeView === 'files' && (
-            <FilesWorkspaceView
-              files={workspaceFiles}
-              activeFileId={activeFileId}
-              onSelectFile={handleSelectWorkspaceFile}
-              onCreateFile={handleCreateWorkspaceFile}
-              onDeleteFile={handleDeleteWorkspaceFile}
-              onOpenConverter={() => setActiveView('studio')}
-            />
-          )}
-
-          {activeView === 'history' && (
-            <HistoryWorkspaceView
-              authUser={authUser}
-              history={history}
-              onOpenStudio={() => setActiveView('studio')}
-              onRestoreHistory={(entry) => {
-                setConversionTitle(entry.label || 'Untitled conversion');
-                setPythonCode(entry.pythonCode || '');
-                setJavaCode(entry.javaCode || '');
-                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
-                setExecutionStdout(computeProgramStdout(entry.pythonCode));
-                showToast('Loaded saved conversion');
-              }}
-              onRenameHistory={handleRenameHistory}
-              onDeleteHistory={handleDeleteHistory}
-              onDuplicateHistory={handleDuplicateHistory}
-              onToggleFavorite={handleToggleFavorite}
-            />
-          )}
-
-          {activeView === 'tests' && (
-            <TestsWorkspaceView
-              javaCode={javaCode}
-              generatedUnitTest={generatedUnitTest || (javaCode.trim() ? generateJUnitTestSuite({ javaCode, verificationReport }) : '')}
-              verificationReport={verificationReport}
-              isGenerating={isGeneratingTests}
-              onGenerateTests={handleGenerateStandaloneTests}
-              onDownloadJUnit={() => {
-                const content = generatedUnitTest || generateJUnitTestSuite({ javaCode, verificationReport });
-                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'SolutionTest.java';
-                a.click();
-                URL.revokeObjectURL(a.href);
-              }}
-              onBackToStudio={() => setActiveView('studio')}
-            />
-          )}
-
-          {activeView === 'comparison' && (
-            <CodeComparisonView
-              pythonCode={pythonCode}
-              javaCode={javaCode}
-              onEditPython={setPythonCode}
-              onRunConvert={() => handleTranspile({ verify: true })}
-              isTranspiling={isTranspiling}
-            />
-          )}
-
-          {activeView === 'analysis' && (
-            <AnalysisWorkspaceView pythonCode={pythonCode} javaCode={javaCode} />
-          )}
-
-          {activeView === 'playground' && (
-            <div className="space-y-5">
-              <ApiPlayground
-                pgApiKey={pgApiKey}
-                setPgApiKey={setPgApiKey}
-                pgRequestBody={pgRequestBody}
-                setPgRequestBody={setPgRequestBody}
-                pgStatusBadge={pgStatusBadge}
-                pgResponseLatency={pgResponseLatency}
-                pgResponseHeaders={pgResponseHeaders}
-                pgResponseBody={pgResponseBody}
-                isPgLoading={isPgLoading}
-                onExecuteRequest={handleExecutePlayground}
-                onLoadScenario={handleLoadScenario}
-                generatedCurl={generatedCurl}
+            {activeView === 'studio' && (
+              <TranspilerStudio
+                conversionTitle={conversionTitle}
+                onChangeTitle={setConversionTitle}
+                pythonCode={pythonCode}
+                setPythonCode={setPythonCode}
+                javaCode={javaCode}
+                setJavaCode={setJavaCode}
+                javaTargetVersion={javaTargetVersion}
+                setJavaTargetVersion={setJavaTargetVersion}
+                conversionMode={conversionMode}
+                setConversionMode={setConversionMode}
+                conversionConfig={conversionConfig}
+                setConversionConfig={setConversionConfig}
+                additionalInstructions={additionalInstructions}
+                setAdditionalInstructions={setAdditionalInstructions}
+                isTranspiling={isTranspiling}
+                onTranspile={handleTranspile}
+                onCancelTranspile={handleCancelTranspile}
+                onNewConversion={handleCreateWorkspaceFile}
+                onSaveProject={() => saveCurrentSnapshot(pythonCode, javaCode, verificationReport?.status || null)}
+                onClearEditor={handleClearEditor}
+                executionStdout={executionStdout}
+                onDownloadJava={handleDownloadJava}
                 copyToClipboard={copyToClipboard}
                 copiedId={copiedId}
+                bypassCache={bypassCache}
+                setBypassCache={setBypassCache}
+                selfHealing={selfHealing}
+                verificationReport={verificationReport}
+                isVerifying={isVerifying}
+                isRepairing={isRepairing}
+                onRepairJava={() => handleRepairJava()}
+                onApplyJavaEdit={applyJavaChangeWithUndo}
+                canUndoJava={Boolean(previousJavaCode)}
+                onUndoJava={handleUndoJava}
+                programStdin={programStdin}
+                setProgramStdin={setProgramStdin}
+                multiTestCases={multiTestCases}
+                setMultiTestCases={setMultiTestCases}
+                onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin, multiTestCases)}
+                selectedPython={selectedPython}
+                onSelectPython={setSelectedPython}
+                settings={settings}
+                autoSaveStatus={autoSaveStatus}
+                history={history}
+                onRestoreHistory={(entry) => {
+                  setConversionTitle(entry.label || 'Untitled conversion');
+                  setPythonCode(entry.pythonCode || '');
+                  setJavaCode(entry.javaCode || '');
+                  if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                  setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                  setVerificationReport(null);
+                  showToast('Restored from history');
+                }}
+                onToggleAssistant={() => setActiveView('assistant')}
               />
-              <WebhookInspector
-                webhookEndpointUrl={webhookEndpointUrl}
-                setWebhookEndpointUrl={setWebhookEndpointUrl}
-                webhookSigningSecret={webhookSigningSecret}
-                setWebhookSigningSecret={setWebhookSigningSecret}
-                webhookEventTopic={webhookEventTopic}
-                setWebhookEventTopic={setWebhookEventTopic}
-                webhookDeliveries={webhookDeliveries}
-                selectedWebhookIndex={selectedWebhookIndex}
-                setSelectedWebhookIndex={setSelectedWebhookIndex}
-                onTriggerManualWebhook={async () => {
-                  const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 25, null);
-                  if (entry) showToast(`Webhook dispatched (HTTP ${entry.statusCode})`);
+            )}
+
+            {activeView === 'assistant' && (
+              <AssistantWorkspaceView
+                pythonCode={pythonCode}
+                javaCode={javaCode}
+                selectedPython={selectedPython}
+                javaVersion={javaTargetVersion}
+                verificationReport={verificationReport}
+                onApplyJavaEdit={(code) => {
+                  applyJavaChangeWithUndo(code);
+                  showToast('Applied assistant suggestion');
                 }}
-                onClearLogs={() => {
-                  setWebhookDeliveries([]);
-                  setSelectedWebhookIndex(0);
-                }}
-                onReplayWebhook={(idx) => {
-                  const orig = webhookDeliveries[idx];
-                  if (orig) void recordWebhookDelivery(`${orig.eventType}.replay`, 200, pythonCode, javaCode, 20, null);
-                }}
-                copyToClipboard={copyToClipboard}
-                copiedId={copiedId}
               />
-            </div>
-          )}
+            )}
 
-          {activeView === 'docs' && (
-            <DocumentationView onDownloadReadme={handleDownloadReadme} copyToClipboard={copyToClipboard} copiedId={copiedId} />
-          )}
+            {activeView === 'verification' && (
+              <VerificationStudioView
+                pythonCode={pythonCode}
+                javaCode={javaCode}
+                javaVersion={javaTargetVersion}
+                verificationReport={verificationReport}
+                isVerifying={isVerifying}
+                isRepairing={isRepairing}
+                onVerify={() => runVerification(pythonCode, javaCode, programStdin, multiTestCases)}
+                onRepair={() => handleRepairJava()}
+              />
+            )}
 
-          {activeView === 'settings' && (
-            <SettingsWorkspaceView
-              settings={settings}
-              onUpdateSetting={updateSetting}
-              onClearLocalData={handleClearLocalData}
-            />
-          )}
-        </main>
+            {activeView === 'files' && (
+              <FilesWorkspaceView
+                files={workspaceFiles}
+                activeFileId={activeFileId}
+                onSelectFile={handleSelectWorkspaceFile}
+                onCreateFile={handleCreateWorkspaceFile}
+                onDeleteFile={handleDeleteWorkspaceFile}
+                onOpenConverter={() => setActiveView('studio')}
+              />
+            )}
 
-        {/* Collapsible Context-Aware AI Assistant Drawer */}
-        <AssistantPanel
-          open={assistantOpen}
-          onClose={() => setAssistantOpen(false)}
-          pythonCode={pythonCode}
-          javaCode={javaCode}
-          selectedPython={selectedPython}
-          javaVersion={javaTargetVersion}
-          compilerError={verificationReport?.java?.compilerError || ''}
-          verificationReport={verificationReport}
-          onApplyJavaEdit={applyJavaChangeWithUndo}
-          canUndoJava={Boolean(previousJavaCode)}
-          onUndoJava={handleUndoJava}
-        />
-      </div>
+            {activeView === 'history' && (
+              <HistoryWorkspaceView
+                authUser={authUser}
+                history={history}
+                workspaceFiles={workspaceFiles}
+                activeFileId={activeFileId}
+                onSelectFile={handleSelectWorkspaceFile}
+                onCreateFile={handleCreateWorkspaceFile}
+                onOpenStudio={() => setActiveView('studio')}
+                onRestoreHistory={(entry) => {
+                  setConversionTitle(entry.label || 'Untitled conversion');
+                  setPythonCode(entry.pythonCode || '');
+                  setJavaCode(entry.javaCode || '');
+                  if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                  setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                  showToast('Loaded saved conversion');
+                }}
+                onRenameHistory={handleRenameHistory}
+                onDeleteHistory={handleDeleteHistory}
+                onDuplicateHistory={handleDuplicateHistory}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            )}
+
+            {activeView === 'tests' && (
+              <TestsWorkspaceView
+                javaCode={javaCode}
+                generatedUnitTest={generatedUnitTest || (javaCode.trim() ? generateJUnitTestSuite({ javaCode, verificationReport }) : '')}
+                verificationReport={verificationReport}
+                isGenerating={isGeneratingTests}
+                onGenerateTests={handleGenerateStandaloneTests}
+                onDownloadJUnit={() => {
+                  const content = generatedUnitTest || generateJUnitTestSuite({ javaCode, verificationReport });
+                  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                  const a = document.createElement('a');
+                  a.href = URL.createObjectURL(blob);
+                  a.download = 'SolutionTest.java';
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                }}
+                onBackToStudio={() => setActiveView('studio')}
+              />
+            )}
+
+            {activeView === 'comparison' && (
+              <CodeComparisonView
+                pythonCode={pythonCode}
+                javaCode={javaCode}
+                onEditPython={setPythonCode}
+                onRunConvert={() => handleTranspile({ verify: true })}
+                isTranspiling={isTranspiling}
+              />
+            )}
+
+            {activeView === 'analysis' && (
+              <AnalysisWorkspaceView pythonCode={pythonCode} javaCode={javaCode} />
+            )}
+
+            {activeView === 'playground' && (
+              <div className="space-y-5">
+                <ApiPlayground
+                  pgApiKey={pgApiKey}
+                  setPgApiKey={setPgApiKey}
+                  pgRequestBody={pgRequestBody}
+                  setPgRequestBody={setPgRequestBody}
+                  pgStatusBadge={pgStatusBadge}
+                  pgResponseLatency={pgResponseLatency}
+                  pgResponseHeaders={pgResponseHeaders}
+                  pgResponseBody={pgResponseBody}
+                  isPgLoading={isPgLoading}
+                  onExecuteRequest={handleExecutePlayground}
+                  onLoadScenario={handleLoadScenario}
+                  generatedCurl={generatedCurl}
+                  copyToClipboard={copyToClipboard}
+                  copiedId={copiedId}
+                />
+                <WebhookInspector
+                  webhookEndpointUrl={webhookEndpointUrl}
+                  setWebhookEndpointUrl={setWebhookEndpointUrl}
+                  webhookSigningSecret={webhookSigningSecret}
+                  setWebhookSigningSecret={setWebhookSigningSecret}
+                  webhookEventTopic={webhookEventTopic}
+                  setWebhookEventTopic={setWebhookEventTopic}
+                  webhookDeliveries={webhookDeliveries}
+                  selectedWebhookIndex={selectedWebhookIndex}
+                  setSelectedWebhookIndex={setSelectedWebhookIndex}
+                  onTriggerManualWebhook={async () => {
+                    const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 25, null);
+                    if (entry) showToast(`Webhook dispatched (HTTP ${entry.statusCode})`);
+                  }}
+                  onClearLogs={() => {
+                    setWebhookDeliveries([]);
+                    setSelectedWebhookIndex(0);
+                  }}
+                  onReplayWebhook={(idx) => {
+                    const orig = webhookDeliveries[idx];
+                    if (orig) void recordWebhookDelivery(`${orig.eventType}.replay`, 200, pythonCode, javaCode, 20, null);
+                  }}
+                  copyToClipboard={copyToClipboard}
+                  copiedId={copiedId}
+                />
+              </div>
+            )}
+
+            {activeView === 'docs' && (
+              <DocumentationView onDownloadReadme={handleDownloadReadme} copyToClipboard={copyToClipboard} copiedId={copiedId} />
+            )}
+
+            {activeView === 'settings' && (
+              <SettingsWorkspaceView
+                settings={settings}
+                onUpdateSetting={updateSetting}
+                onClearLocalData={handleClearLocalData}
+                onSavedToast={() => showToast('Studio settings saved')}
+              />
+            )}
+          </main>
+        </div>
+      )}
 
       <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
       <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} returnTo="/" reason={authPromptReason} />
 
-      {/* Minimal Status Toast */}
       <div
         className={`fixed bottom-4 right-4 z-50 transition-all duration-150 pointer-events-none t-surface px-3.5 py-2 flex items-center gap-2 text-xs font-mono ${
           toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
