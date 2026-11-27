@@ -997,7 +997,7 @@ export default function TranspilerStudio({
               </div>
               <div className="flex items-center justify-between p-2 rounded t-subtle">
                 <span className="opacity-80">Auto-Indent After Colon</span>
-                <kbd className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 font-bold">Enter after ':'</kbd>
+                <kbd className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 font-bold">Enter after &apos;:&apos;</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded t-subtle">
                 <span className="opacity-80">AST Line-to-Line Tracing</span>
@@ -1005,7 +1005,7 @@ export default function TranspilerStudio({
               </div>
               <div className="flex items-center justify-between p-2 rounded t-subtle">
                 <span className="opacity-80">Format Code (PEP-8)</span>
-                <span className="text-[11px] opacity-75">Click 'Format' Button</span>
+                <span className="text-[11px] opacity-75">Click &apos;Format&apos; Button</span>
               </div>
             </div>
 

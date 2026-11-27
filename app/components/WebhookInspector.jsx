@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Send,
   RefreshCw,
@@ -33,10 +33,6 @@ export default function WebhookInspector({
   const [verificationResult, setVerificationResult] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  useEffect(() => {
-    setVerificationResult(null);
-  }, [selectedWebhook?.id]);
-
   const handleVerify = async (tamper = false) => {
     if (!selectedWebhook) return;
     setIsVerifying(true);
@@ -65,11 +61,13 @@ export default function WebhookInspector({
       setVerificationResult({
         ...json,
         tampered: tamper,
+        webhookId: selectedWebhook.id,
       });
     } catch (err) {
       setVerificationResult({
         verified: false,
         message: 'Verification request failed: ' + err.message,
+        webhookId: selectedWebhook.id,
       });
     } finally {
       setIsVerifying(false);
@@ -308,7 +306,7 @@ export default function WebhookInspector({
           Validates that incoming webhook payloads match their cryptographic HMAC-SHA256 signature using constant-time byte comparison (<code className="font-mono">crypto.timingSafeEqual</code>) to prevent timing attacks.
         </p>
 
-        {verificationResult && (
+        {verificationResult && verificationResult.webhookId === selectedWebhook?.id && (
           <div
             className={`p-3 rounded border font-mono text-xs space-y-2 transition ${
               verificationResult.verified
