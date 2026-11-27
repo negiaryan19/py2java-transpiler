@@ -7,6 +7,7 @@ import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
 import CodeComparisonView from './components/CodeComparisonView';
+import OverviewDashboard from './components/OverviewDashboard';
 import AuthModal from './components/AuthModal';
 import {
   studioTranspileAction,
@@ -597,7 +598,9 @@ export default function JForgeOrchestrator() {
   const [history, setHistory] = useState([]);
   const [verificationReport, setVerificationReport] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const [programStdin, setProgramStdin] = useState('');
+  const [multiTestCases, setMultiTestCases] = useState([]);
 
   // Global Toast & Copy Feedback
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -813,23 +816,89 @@ export default function JForgeOrchestrator() {
     return entry;
   };
 
-  const runVerification = async (pyCode, jCode, stdinVal = '') => {
-    if (!pyCode?.trim() || !jCode?.trim()) return null;
-    setIsVerifying(true);
+  const handleRepairJava = async (
+    pyCode = pythonCode,
+    jCode = javaCode,
+    compilerErr = verificationReport?.java?.compilerError || '',
+    mismatchNote = verificationReport?.status === 'behavioral_mismatch'
+      ? `Python output: ${verificationReport?.python?.stdout || ''}\nJava output: ${verificationReport?.java?.stdout || ''}`
+      : '',
+    stdinVal = programStdin
+  ) => {
+    if (!pyCode?.trim() || !jCode?.trim() || isRepairing) return null;
+    setIsRepairing(true);
     try {
-      const res = await fetch('/api/v1/verify', {
+      const res = await fetch('/api/v1/repair', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           python_code: pyCode,
           java_code: jCode,
+          compiler_error: compilerErr,
+          mismatch_note: mismatchNote,
           stdin: stdinVal,
+          java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '17',
         }),
+      });
+      const rep = await res.json();
+      if (rep?.repaired && rep.javaCode) {
+        setJavaCode(rep.javaCode);
+        if (rep.verification) {
+          setVerificationReport({ ...rep.verification, repairedAttempts: rep.attempts || [] });
+          if (rep.verification?.python?.ok) {
+            setExecutionStdout(rep.verification.python.stdout || '(No output)');
+          }
+        }
+        showToast(`Auto-repaired (${rep.attempts?.length || 1} javac pass)`);
+      } else {
+        showToast('No automatic repair patch could resolve remaining issue');
+      }
+      return rep;
+    } catch {
+      showToast('Repair request failed');
+      return null;
+    } finally {
+      setIsRepairing(false);
+    }
+  };
+
+  const runVerification = async (pyCode, jCode, stdinVal = '', casesOverride = multiTestCases) => {
+    if (!pyCode?.trim() || !jCode?.trim()) return null;
+    setIsVerifying(true);
+    try {
+      const payload = {
+        python_code: pyCode,
+        java_code: jCode,
+        stdin: stdinVal,
+      };
+      if (Array.isArray(casesOverride) && casesOverride.length > 0) {
+        payload.test_cases = casesOverride;
+      }
+      const res = await fetch('/api/v1/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       setVerificationReport(data);
+      if (data?.status) {
+        setHistory((prev) => {
+          const updated = prev.map((item, i) =>
+            i === 0 && item.pythonCode === pyCode ? { ...item, verifiedStatus: data.status } : item
+          );
+          try {
+            localStorage.setItem('jforge_history', JSON.stringify(updated));
+          } catch {
+            // Ignore
+          }
+          return updated;
+        });
+      }
       if (data?.python?.ok && typeof data.python.stdout === 'string') {
         setExecutionStdout(data.python.stdout || '(No output)');
+      }
+      if (data?.status === 'compilation_failed' && data.java?.compilerError) {
+        await handleRepairJava(pyCode, jCode, data.java.compilerError, '', stdinVal);
       }
       return data;
     } catch {
@@ -1313,6 +1382,23 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
         />
 
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto space-y-5 max-w-[1600px] w-full mx-auto">
+          {activeView === 'overview' && (
+            <OverviewDashboard
+              authUser={authUser}
+              history={history}
+              verificationReport={verificationReport}
+              onOpenStudio={() => setActiveView('studio')}
+              onOpenComparison={() => setActiveView('comparison')}
+              onRestoreHistory={(entry) => {
+                setPythonCode(entry.pythonCode);
+                setJavaCode(entry.javaCode);
+                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                showToast('Restored from history');
+              }}
+            />
+          )}
+
           {activeView === 'studio' && (
             <TranspilerStudio
               pythonCode={pythonCode}
@@ -1346,9 +1432,13 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               history={history}
               verificationReport={verificationReport}
               isVerifying={isVerifying}
+              isRepairing={isRepairing}
+              onRepairJava={() => handleRepairJava()}
               programStdin={programStdin}
               setProgramStdin={setProgramStdin}
-              onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin)}
+              multiTestCases={multiTestCases}
+              setMultiTestCases={setMultiTestCases}
+              onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin, multiTestCases)}
               onRestoreHistory={(entry) => {
                 setPythonCode(entry.pythonCode);
                 setJavaCode(entry.javaCode);

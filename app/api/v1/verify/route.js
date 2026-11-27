@@ -36,10 +36,12 @@ export async function POST(request) {
   }
 
   const stdin = typeof body?.stdin === 'string' ? body.stdin.slice(0, 4096) : '';
+  const testCases = Array.isArray(body?.test_cases) ? body.test_cases.slice(0, 4) : null;
   const result = await verifyConversionBehavior({
     pythonCode: body.python_code,
     javaCode: body.java_code,
     stdin,
+    testCases,
   });
 
   return Response.json(result, { status: 200 });

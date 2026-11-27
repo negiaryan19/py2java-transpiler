@@ -31,9 +31,14 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  FolderArchive,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { studioExplainAction } from '../actions.js';
+import { generateJUnitTestSuite } from '../../lib/junit-generator';
+import { buildJavaProjectFiles, buildZipBytes } from '../../lib/zip-export';
 
 export default function TranspilerStudio({
   pythonCode,
@@ -68,8 +73,12 @@ export default function TranspilerStudio({
   onRestoreHistory = () => {},
   verificationReport = null,
   isVerifying = false,
+  isRepairing = false,
+  onRepairJava = () => {},
   programStdin = '',
   setProgramStdin = () => {},
+  multiTestCases = [],
+  setMultiTestCases = () => {},
   onVerifyOnly = () => {},
 }) {
   const pyTextareaRef = useRef(null);
@@ -79,8 +88,28 @@ export default function TranspilerStudio({
   const fileInputRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [multiTestOpen, setMultiTestOpen] = useState(false);
   const [consoleTab, setConsoleTab] = useState('stdout'); // 'stdout' | 'javaRun' | 'diagnostics'
   const [javaRunResult, setJavaRunResult] = useState(null);
+
+  const handleDownloadProjectZip = () => {
+    const junitCode = generateJUnitTestSuite({ javaCode, verificationReport });
+    const files = buildJavaProjectFiles({
+      javaCode,
+      junitCode,
+      pythonCode,
+      javaVersion: javaTargetVersion,
+      verificationReport,
+    });
+    const zipBytes = buildZipBytes(files);
+    const blob = new Blob([zipBytes], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'jforge-java-project.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const [isRunningJava, setIsRunningJava] = useState(false);
   const [githubImportOpen, setGithubImportOpen] = useState(false);
   const [githubUrl, setGithubUrl] = useState('');
@@ -884,6 +913,14 @@ export default function TranspilerStudio({
                 <span>.java</span>
               </button>
               <button
+                onClick={handleDownloadProjectZip}
+                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
+                title="Export full Maven project ZIP (with pom.xml & JUnit 5 tests)"
+              >
+                <FolderArchive className="w-3 h-3" />
+                <span>.zip</span>
+              </button>
+              <button
                 onClick={() => copyToClipboard(javaCode, 'java', 'Java code copied')}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
                 title="Copy Java"
@@ -1006,16 +1043,42 @@ export default function TranspilerStudio({
                 Not verified yet
               </span>
             )}
+            {verificationReport?.repairedAttempts?.length > 0 && (
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-purple-500/15 text-purple-600 font-semibold">
+                Auto-Repaired ({verificationReport.repairedAttempts.length} pass)
+              </span>
+            )}
           </div>
 
-          <button
-            onClick={onVerifyOnly}
-            disabled={isVerifying || !pythonCode?.trim() || !javaCode?.trim()}
-            className="t-btn-secondary px-3 py-1 text-[11px] font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3 h-3 ${isVerifying ? 'animate-spin' : ''}`} />
-            <span>Re-Verify Live</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {verificationReport &&
+              (verificationReport.status === 'compilation_failed' || verificationReport.status === 'behavioral_mismatch') && (
+                <button
+                  onClick={onRepairJava}
+                  disabled={isRepairing || isVerifying}
+                  className="t-btn-primary px-3 py-1 text-[11px] font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className={`w-3 h-3 ${isRepairing ? 'animate-spin' : ''}`} />
+                  <span>{isRepairing ? 'Repairing...' : 'Auto-Repair (javac)'}</span>
+                </button>
+              )}
+            <button
+              onClick={() => setMultiTestOpen((v) => !v)}
+              className="t-btn-secondary px-3 py-1 text-[11px] font-mono flex items-center gap-1 cursor-pointer"
+              title="Configure multiple stdin test cases"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Test Cases ({multiTestCases.length})</span>
+            </button>
+            <button
+              onClick={onVerifyOnly}
+              disabled={isVerifying || isRepairing || !pythonCode?.trim() || !javaCode?.trim()}
+              className="t-btn-secondary px-3 py-1 text-[11px] font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3 h-3 ${isVerifying ? 'animate-spin' : ''}`} />
+              <span>Re-Verify Live</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs font-mono">
@@ -1093,6 +1156,90 @@ export default function TranspilerStudio({
           <pre className="p-2.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-600 text-[11px] font-mono whitespace-pre-wrap overflow-x-auto">
             {verificationReport.java.compilerError}
           </pre>
+        )}
+
+        {multiTestOpen && (
+          <div className="p-3 t-subtle space-y-2 text-xs font-mono">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">Custom Stdin Test Cases (max 4)</span>
+              {multiTestCases.length < 4 && (
+                <button
+                  onClick={() =>
+                    setMultiTestCases((prev) => [
+                      ...prev,
+                      { name: `Case ${prev.length + 1}`, stdin: '' },
+                    ])
+                  }
+                  className="t-btn-secondary px-2.5 py-1 text-[11px] flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Case</span>
+                </button>
+              )}
+            </div>
+            {multiTestCases.length === 0 ? (
+              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                Add test inputs to verify Python vs Java across multiple cases automatically.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {multiTestCases.map((tc, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tc.name}
+                      onChange={(e) =>
+                        setMultiTestCases((prev) =>
+                          prev.map((c, i) => (i === idx ? { ...c, name: e.target.value } : c))
+                        )
+                      }
+                      placeholder="Case name"
+                      className="w-28 px-2 py-1 t-surface text-[11px] focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={tc.stdin}
+                      onChange={(e) =>
+                        setMultiTestCases((prev) =>
+                          prev.map((c, i) => (i === idx ? { ...c, stdin: e.target.value } : c))
+                        )
+                      }
+                      placeholder="stdin (e.g. 5 or line1\nline2)"
+                      className="flex-1 px-2 py-1 t-surface text-[11px] focus:outline-none"
+                    />
+                    <button
+                      onClick={() =>
+                        setMultiTestCases((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="p-1 text-rose-500 hover:opacity-80 cursor-pointer"
+                      aria-label="Remove test case"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {Array.isArray(verificationReport?.cases) && verificationReport.cases.length > 1 && (
+          <div className="space-y-1.5 pt-1">
+            {verificationReport.cases.map((c, idx) => (
+              <div
+                key={idx}
+                className="px-3 py-1.5 t-subtle text-[11px] font-mono flex flex-wrap items-center justify-between gap-2"
+              >
+                <span className="font-semibold">{c.name}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Py: <code>{c.pythonStdout || '∅'}</code> | Java: <code>{c.javaStdout || '∅'}</code>
+                </span>
+                <span className={c.matched ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'}>
+                  {c.matched ? '✓ Match' : '✗ Diff'}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -1284,19 +1431,19 @@ export default function TranspilerStudio({
                   <div className="p-2 rounded t-surface border border-black/5 dark:border-white/5">
                     <div className="text-[10px] opacity-60">Time Complexity</div>
                     <div className="font-bold text-emerald-500 text-sm mt-0.5">
-                      {diagnostics?.time_complexity || 'O(N)'}
+                      {diagnostics?.time_complexity || 'Click Re-Analyze'}
                     </div>
                   </div>
                   <div className="p-2 rounded t-surface border border-black/5 dark:border-white/5">
                     <div className="text-[10px] opacity-60">Space Complexity</div>
                     <div className="font-bold text-sky-500 text-sm mt-0.5">
-                      {diagnostics?.space_complexity || 'O(1) Stack'}
+                      {diagnostics?.space_complexity || 'Pending'}
                     </div>
                   </div>
                   <div className="p-2 rounded t-surface border border-black/5 dark:border-white/5">
-                    <div className="text-[10px] opacity-60">Type Safety Score</div>
+                    <div className="text-[10px] opacity-60">Syntax Compatibility</div>
                     <div className="font-bold text-purple-500 text-sm mt-0.5">
-                      {diagnostics?.type_safety_score || '100% Typed'}
+                      {diagnostics?.type_safety_score || 'Static AST'}
                     </div>
                   </div>
                   <div className="p-2 rounded t-surface border border-black/5 dark:border-white/5">
@@ -1306,6 +1453,17 @@ export default function TranspilerStudio({
                     </div>
                   </div>
                 </div>
+
+                {diagnostics?.warnings?.length > 0 && (
+                  <div className="p-2.5 rounded border border-amber-500/30 bg-amber-500/10 text-amber-600 text-[11px] space-y-1">
+                    <div className="font-bold">Compatibility Warnings (Unsupported / Partial Syntax):</div>
+                    <ul className="list-disc pl-4 space-y-0.5">
+                      {diagnostics.warnings.map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* AST Self-Correction / Reflection Telemetry Card */}
                 {selfHealing && (

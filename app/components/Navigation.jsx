@@ -9,6 +9,7 @@ import {
   Sparkles,
   LogIn,
   LogOut,
+  LayoutGrid,
 } from 'lucide-react';
 
 export default function Navigation({
@@ -157,7 +158,19 @@ export function SidebarRail({
         </div>
 
         {/* Core Navigation Views */}
-        <nav className="grid grid-cols-2 lg:grid-cols-1 gap-1.5">
+        <nav className="grid grid-cols-3 lg:grid-cols-1 gap-1.5">
+          <button
+            onClick={() => setActiveView('overview')}
+            className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
+              activeView === 'overview' ? 'active' : ''
+            }`}
+          >
+            <span className="flex items-center gap-2.5">
+              <LayoutGrid className="w-4 h-4 shrink-0" />
+              <span>Overview</span>
+            </span>
+          </button>
+
           <button
             onClick={() => setActiveView('studio')}
             className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
