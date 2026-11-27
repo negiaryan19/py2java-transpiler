@@ -38,18 +38,19 @@ py2java-transpiler/
 │   ├── ast-diff/
 │   │   └── page.jsx                  # Interactive AST Differential Inspector Dual-Editor View
 │   ├── components/
-│   │   ├── ASTDiffViewer.jsx         # Dual Monaco editors with synchronized hover mapping
-│   │   ├── ExplanationDrawer.jsx     # Slide-in type, memory & safety inspector
-│   │   ├── ASTLegend.jsx             # Visual alignment confidence status bar
 │   │   ├── Navigation.jsx            # App view switcher & live theme toggle
 │   │   ├── TranspilerStudio.jsx      # Dual-pane code editor (Python -> Java) + Maven pom.xml
 │   │   ├── ApiPlayground.jsx         # Interactive REST client for testing POST /api/v1/convert
 │   │   ├── WebhookInspector.jsx      # Live event logs, HTTP status & HMAC Verifier
 │   │   ├── DocumentationView.jsx     # CIA-P rubric compliance, .env generator, cURL docs
 │   │   └── AstTypeBar.jsx            # AST syntax mapping indicators
-│   ├── globals.css                   # Tailwind directives and theme variables
+│   ├── globals.css                   # Tailwind v4 directives and theme variables
 │   ├── layout.jsx                    # Root layout with metadata and fonts
 │   └── page.jsx                      # Main client page orchestrating the 4 views
+├── components/
+│   ├── ASTDiffViewer.jsx             # Dual Monaco editors with synchronized hover mapping
+│   ├── ASTLegend.jsx                 # Visual alignment confidence status bar
+│   └── ExplanationDrawer.jsx         # Slide-in type, memory & safety inspector
 ├── lib/
 │   ├── ast-aligner.js                # Cross-language AST semantic node alignment engine
 │   ├── ast-parser.js                 # Tree-sitter AST parser for Python 3.11 & Java 17 LTS
@@ -74,18 +75,16 @@ py2java-transpiler/
 │   ├── security-gateway.test.mjs     # Rate limiting, OpenAPI, Health probe & env tests
 │   ├── self-healing.test.mjs         # Static AST analyzer & self-correction pipeline tests
 │   ├── webhook-verify.test.mjs       # Cryptographic signature validation tests
-│   └── webhook.test.mjs              # Webhook dispatcher & HMAC tests
-├── __tests__/
-│   └── ast-aligner.test.js           # Jest-compatible test suite for AST aligner
+│   ├── webhook.test.mjs              # Webhook dispatcher & HMAC tests
 ├── .github/workflows/
-│   └── ci.yml                        # Automated CI running 48 tests & Next.js production build
+│   └── ci.yml                        # Automated CI running 49 tests & Next.js production build
 ├── .env.example                      # Public template showing placeholder environment keys
 ├── .env.local                        # Git-ignored local environment secrets
 ├── .gitignore                        # Strict rules ignoring node_modules, .next, and .env*
+├── eslint.config.mjs                 # ESLint v9 flat config extending Next.js Core Web Vitals
 ├── next.config.mjs                   # Next.js build configuration
 ├── package.json                      # All required dependencies, scripts, and devDependencies
-├── postcss.config.mjs                # PostCSS configuration for Tailwind
-├── tailwind.config.js                # Tailwind CSS custom themes and font definitions
+├── postcss.config.mjs                # PostCSS configuration for Tailwind v4
 └── README.md                         # Complete project documentation, architecture, and setup guide
 ```
 
