@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Sliders, X } from 'lucide-react';
 import Navigation, { SidebarRail } from './components/Navigation';
 import TranspilerStudio from './components/TranspilerStudio';
 import ApiPlayground from './components/ApiPlayground';
@@ -587,17 +586,12 @@ export default function JForgeOrchestrator() {
     },
   });
 
-  // Engine Modal & Key Configuration (server secret never exposed in browser bundle)
-  const [engineModalOpen, setEngineModalOpen] = useState(false);
+  // Auth & Engine State (uses server-configured GEMINI_API_KEY automatically)
   const [authUser, setAuthUser] = useState(null);
   const [oauthConfigured, setOauthConfigured] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authPromptReason, setAuthPromptReason] = useState('');
-  const [liveGeminiKey, setLiveGeminiKey] = useState('');
   const [activeEngine, setActiveEngine] = useState('Gemini Live');
-  const [tempGeminiKey, setTempGeminiKey] = useState('');
-  const [configuredGatewayKey, setConfiguredGatewayKey] = useState('');
-  const [tempGatewayKey, setTempGatewayKey] = useState('');
 
   // Global Toast & Copy Feedback
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -814,57 +808,19 @@ export default function JForgeOrchestrator() {
     let serverWebhookDelivery = null;
 
     const targetJava = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
-    const customGatewayKey = configuredGatewayKey.trim();
 
     try {
       try {
-        if (customGatewayKey) {
-          const response = await fetch('/api/v1/convert', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': customGatewayKey,
-              ...(liveGeminiKey ? { 'x-gemini-api-key': liveGeminiKey } : {}),
-            },
-            body: JSON.stringify({
-              python_code: pythonCode,
-              java_version: targetJava,
-              webhook_url: webhookEndpointUrl,
-              gemini_api_key: liveGeminiKey || undefined,
-              bypass_cache: bypassCache,
-            }),
-          });
+        const actionRes = await studioTranspileAction({
+          pythonCode,
+          javaVersion: targetJava,
+          webhookUrl: webhookEndpointUrl,
+          bypassCache,
+        });
 
-          const resData = await response.json().catch(() => ({}));
-          if (response.ok) {
-            const returnedJava = resData?.data?.java_code || resData?.java_code;
-            if (returnedJava) {
-              javaResult = returnedJava;
-              summaryNote = resData?.summary || `Successfully synthesized via POST /api/v1/convert (${javaTargetVersion}).`;
-              remoteSuccess = true;
-              serverWebhookDelivery = resData?.webhook_delivery || null;
-              setIsCacheHit(resData?.cache?.hit || false);
-              if (resData?.self_healing) setSelfHealing(resData.self_healing);
-              if (resData?.engine) {
-                setActiveEngine(resData.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
-              }
-            }
-          } else {
-            apiErrorStatus = response.status;
-            apiErrorMessage = resData?.message || `Backend gateway returned HTTP ${response.status}`;
-          }
-        } else {
-          const actionRes = await studioTranspileAction({
-            pythonCode,
-            javaVersion: targetJava,
-            webhookUrl: webhookEndpointUrl,
-            clientGeminiKey: liveGeminiKey,
-            bypassCache,
-          });
-
-          if (actionRes?.ok) {
-            const returnedJava = actionRes?.data?.java_code;
-            if (returnedJava) {
+        if (actionRes?.ok) {
+          const returnedJava = actionRes?.data?.java_code;
+          if (returnedJava) {
               javaResult = returnedJava;
               summaryNote = actionRes?.summary || `Successfully synthesized via Server Action (${javaTargetVersion}).`;
               remoteSuccess = true;
@@ -882,7 +838,6 @@ export default function JForgeOrchestrator() {
             apiErrorStatus = actionRes?.status || 400;
             apiErrorMessage = actionRes?.error || `Studio transpilation failed (HTTP ${apiErrorStatus})`;
           }
-        }
       } catch (_networkErr) {
         // Safe local fallback handles requests only if server is unreachable
       }
@@ -1234,36 +1189,15 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
     showToast('Webhook logs cleared');
   };
 
-  // Engine Modal
-  const handleSaveEngineConfig = () => {
-    setLiveGeminiKey(tempGeminiKey.trim());
-    const validKey = tempGatewayKey.trim();
-    setConfiguredGatewayKey(validKey);
-    if (validKey) setPgApiKey(validKey);
-    setEngineModalOpen(false);
-    showToast('Engine & Gateway configuration saved');
-  };
-
   return (
     <div data-theme={theme} className="min-h-screen flex flex-col antialiased selection:bg-amber-300 selection:text-black">
       {/* Top Global Navigation Bar */}
       <Navigation
         theme={theme}
         setTheme={setTheme}
-        activeView={activeView}
-        setActiveView={setActiveView}
-        onOpenEngineModal={() => {
-          setTempGeminiKey(liveGeminiKey);
-          setTempGatewayKey(configuredGatewayKey);
-          setEngineModalOpen(true);
-        }}
-        liveGeminiKey={liveGeminiKey}
         activeEngine={activeEngine}
-        latency={latency}
-        webhookCount={webhookDeliveries.length}
         showToast={showToast}
         authUser={authUser}
-        onOpenAuthModal={() => promptSignIn('')}
         onLogout={handleLogout}
       />
 
@@ -1301,7 +1235,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               setBypassCache={setBypassCache}
               isCacheHit={isCacheHit}
               selfHealing={selfHealing}
-              gatewayApiKey={configuredGatewayKey}
+              gatewayApiKey=""
               onRequireAuth={promptSignIn}
             />
           )}
@@ -1358,71 +1292,6 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
           )}
         </main>
       </div>
-
-      {/* Engine Configuration Modal */}
-      {engineModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="t-surface w-full max-w-md p-5 space-y-4">
-            <div className="flex items-center justify-between t-border-b pb-3">
-              <h3 className="font-bold text-sm heading-font flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-emerald-500" />
-                <span>Transpiler Engine Configuration</span>
-              </h3>
-              <button
-                onClick={() => setEngineModalOpen(false)}
-                className="text-sm font-mono px-2 py-0.5 t-subtle cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <p style={{ color: 'var(--text-secondary)' }}>
-                J-Forge includes a <strong>Smart Deterministic AST Transpiler</strong> that works offline out-of-the-box. Optionally, provide a Google AI Studio <code className="font-mono">GEMINI_API_KEY</code> to route conversions directly to <code className="font-mono">gemini-2.5-flash</code>.
-              </p>
-
-              <div>
-                <label className="block font-mono font-semibold mb-1">Google AI Studio Gemini API Key (Optional)</label>
-                <input
-                  type="password"
-                  value={tempGeminiKey}
-                  onChange={(e) => setTempGeminiKey(e.target.value)}
-                  placeholder="AIzaSy... (Leave blank for Smart Local AST)"
-                  className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-mono font-semibold mb-1">
-                  Authorized Gateway Key (<code className="font-mono">x-api-key</code>, Optional)
-                </label>
-                <input
-                  type="password"
-                  value={tempGatewayKey}
-                  onChange={(e) => setTempGatewayKey(e.target.value)}
-                  placeholder="Optional (leave blank for built-in Studio mode)"
-                  className="w-full px-3 py-2 t-surface font-mono text-xs focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 t-border-t">
-              <button
-                onClick={() => setEngineModalOpen(false)}
-                className="t-btn-secondary px-3 py-1.5 text-xs font-mono cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEngineConfig}
-                className="t-btn-primary px-4 py-1.5 text-xs font-mono cursor-pointer"
-              >
-                Save Configuration
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Google Sign-In Modal */}
       <AuthModal

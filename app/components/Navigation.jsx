@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import {
   Code2,
-  Sliders,
   Sun,
   Flame,
   Moon,
@@ -16,16 +15,9 @@ import {
 export default function Navigation({
   theme,
   setTheme,
-  activeView,
-  setActiveView,
-  onOpenEngineModal,
-  liveGeminiKey,
-  activeEngine = 'Gemini Live',
-  latency,
-  webhookCount,
+  activeEngine = 'Smart AST',
   showToast,
   authUser = null,
-  onOpenAuthModal = () => {},
   onLogout = () => {},
 }) {
   return (
@@ -101,18 +93,12 @@ export default function Navigation({
           </button>
         </div>
 
-        {/* Right: Engine Status & Gateway Switcher */}
+        {/* Right: Engine Status & Account */}
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={onOpenEngineModal}
-            className="t-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-2 cursor-pointer"
-          >
-            <span className={`w-2 h-2 rounded-full ${activeEngine.toLowerCase().includes('gemini') || liveGeminiKey ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></span>
-            <span className="hidden sm:inline">
-              Engine: {activeEngine || (liveGeminiKey ? 'Gemini Live' : 'Smart AST')}
-            </span>
-            <Sliders className="w-3 h-3 opacity-75" />
-          </button>
+          <span className="t-subtle px-2.5 py-1.5 text-xs font-mono hidden sm:flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${activeEngine.toLowerCase().includes('gemini') ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></span>
+            <span>{activeEngine || 'Smart AST'}</span>
+          </span>
 
           {authUser ? (
             <div className="flex items-center gap-1.5">
