@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   Code2,
   Sun,
@@ -171,15 +170,17 @@ export function SidebarRail({
             </span>
           </button>
 
-          <Link
-            href="/ast-diff"
-            className="nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer rounded transition-all"
+          <button
+            onClick={() => setActiveView('comparison')}
+            className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
+              activeView === 'comparison' ? 'active' : ''
+            }`}
           >
             <span className="flex items-center gap-2.5">
               <Sparkles className="w-4 h-4 shrink-0 text-sky-600" />
               <span>Code Comparison</span>
             </span>
-          </Link>
+          </button>
         </nav>
       </div>
     </aside>

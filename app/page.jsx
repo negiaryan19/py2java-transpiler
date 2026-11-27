@@ -6,6 +6,7 @@ import TranspilerStudio from './components/TranspilerStudio';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
+import CodeComparisonView from './components/CodeComparisonView';
 import AuthModal from './components/AuthModal';
 import {
   studioTranspileAction,
@@ -1310,6 +1311,16 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
                 setExecutionStdout(computeProgramStdout(entry.pythonCode));
                 showToast('Restored from history');
               }}
+            />
+          )}
+
+          {activeView === 'comparison' && (
+            <CodeComparisonView
+              pythonCode={pythonCode}
+              javaCode={javaCode}
+              onEditPython={setPythonCode}
+              onRunConvert={handleTranspile}
+              isTranspiling={isTranspiling}
             />
           )}
 
