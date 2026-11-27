@@ -58,7 +58,7 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
               <span className="text-emerald-600">READY</span>
             </div>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Python 3.11 to Java 17 LTS transpiler with AST type mapping & 6 algorithmic presets.
+              Python 3 to Java LTS studio with semantic AST mapping, compatibility checks, and verification.
             </p>
           </div>
 

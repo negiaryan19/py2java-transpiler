@@ -24,7 +24,7 @@ public class Solution {
 export default function CodeComparisonPage() {
   const [pythonCode, setPythonCode] = useState(DEFAULT_PY);
   const [authUser, setAuthUser] = useState(null);
-  const [theme, setTheme] = useState('cupertino');
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     let active = true;
@@ -34,7 +34,7 @@ export default function CodeComparisonPage() {
         if (!active) return;
         try {
           const savedTheme = localStorage.getItem('jforge_theme');
-          if (savedTheme && ['cupertino', 'brutalist', 'carbon'].includes(savedTheme)) {
+          if (savedTheme && ['dark', 'light'].includes(savedTheme)) {
             setTheme(savedTheme);
           }
         } catch {

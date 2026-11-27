@@ -3,527 +3,38 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Navigation, { SidebarRail } from './components/Navigation';
 import TranspilerStudio from './components/TranspilerStudio';
+import AssistantPanel from './components/AssistantPanel';
+import CommandPalette from './components/CommandPalette';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
 import CodeComparisonView from './components/CodeComparisonView';
-import OverviewDashboard from './components/OverviewDashboard';
 import AuthModal from './components/AuthModal';
+import {
+  FilesWorkspaceView,
+  HistoryWorkspaceView,
+  AnalysisWorkspaceView,
+  TestsWorkspaceView,
+  SettingsWorkspaceView,
+} from './components/WorkspaceViews';
 import {
   studioTranspileAction,
   studioDispatchWebhookAction,
   studioGetSampleSignatureAction,
 } from './actions.js';
 import { evaluatePythonStdout } from '../lib/stdout-eval';
-
-/* ==========================================================================
-   ALGORITHMIC PRESET REPOSITORY
-   ========================================================================== */
-const PRESETS = {
-  bank: {
-    title: "1. Banking OOP",
-    summary: "Converted Python class __init__ and methods into encapsulated Java class with private fields and synchronized transactions.",
-    stdout: "Account[SBIN004921] Owner: Aryan Negi | Balance: Rs.17500.00",
-    py: `class BankAccount:
-    """ OOP Bank Account with transaction validation """
-    def __init__(self, owner: str, account_no: str, balance: float = 0.0):
-        self._owner = owner
-        self._account_no = account_no
-        self._balance = balance
-
-    def deposit(self, amount: float) -> bool:
-        if amount <= 0:
-            raise ValueError("Deposit amount must be positive")
-        self._balance += amount
-        return True
-
-    def withdraw(self, amount: float) -> bool:
-        if amount <= 0 or amount > self._balance:
-            return False
-        self._balance -= amount
-        return True
-
-    def summary(self) -> str:
-        return f"Account[{self._account_no}] Owner: {self._owner} | Balance: Rs.{self._balance:.2f}"
-
-if __name__ == "__main__":
-    acc = BankAccount("Aryan Negi", "SBIN004921", 15000.0)
-    acc.deposit(4500.0)
-    acc.withdraw(2000.0)
-    print(acc.summary())`,
-    java: `package com.jforge.ciap;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (Banking System OOP)
- */
-public class Solution {
-
-    public static class BankAccount {
-        private final String owner;
-        private final String accountNo;
-        private double balance;
-
-        public BankAccount(String owner, String accountNo, double balance) {
-            this.owner = owner;
-            this.accountNo = accountNo;
-            this.balance = balance;
-        }
-
-        public synchronized boolean deposit(double amount) {
-            if (amount <= 0) {
-                throw new IllegalArgumentException("Deposit amount must be positive");
-            }
-            this.balance += amount;
-            return true;
-        }
-
-        public synchronized boolean withdraw(double amount) {
-            if (amount <= 0 || amount > this.balance) {
-                return false;
-            }
-            this.balance -= amount;
-            return true;
-        }
-
-        public String summary() {
-            return String.format(
-                "Account[%s] Owner: %s | Balance: Rs.%.2f",
-                this.accountNo, this.owner, this.balance
-            );
-        }
-    }
-
-    public static void main(String[] args) {
-        BankAccount acc = new BankAccount("Aryan Negi", "SBIN004921", 15000.0);
-        acc.deposit(4500.0);
-        acc.withdraw(2000.0);
-        System.out.println(acc.summary());
-    }
-}`
-  },
-
-  bubblesort: {
-    title: "2. Bubble Sort",
-    summary: "Transpiled in-place array element swapping and boundary conditions into typed List<Integer> algorithm.",
-    stdout: "Sorted Array: [11, 12, 22, 25, 34, 64, 90]",
-    py: `def bubble_sort(arr: list[int]) -> list[int]:
-    """ Standard Bubble Sort with early exit optimization """
-    data = list(arr)
-    n = len(data)
-    for i in range(n):
-        swapped = False
-        for j in range(0, n - i - 1):
-            if data[j] > data[j + 1]:
-                data[j], data[j + 1] = data[j + 1], data[j]
-                swapped = True
-        if not swapped:
-            break
-    return data
-
-if __name__ == "__main__":
-    dataset = [64, 34, 25, 12, 22, 11, 90]
-    print(f"Sorted Array: {bubble_sort(dataset)}")`,
-    java: `package com.jforge.ciap;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (Bubble Sort)
- */
-public class Solution {
-
-    public static List<Integer> bubbleSort(List<Integer> arr) {
-        if (arr == null) {
-            return new ArrayList<>();
-        }
-        List<Integer> data = new ArrayList<>(arr);
-        int n = data.size();
-        for (int i = 0; i < n; i++) {
-            boolean swapped = false;
-            for (int j = 0; j < n - i - 1; j++) {
-                if (data.get(j) > data.get(j + 1)) {
-                    int temp = data.get(j);
-                    data.set(j, data.get(j + 1));
-                    data.set(j + 1, temp);
-                    swapped = true;
-                }
-            }
-            if (!swapped) {
-                break;
-            }
-        }
-        return data;
-    }
-
-    public static void main(String[] args) {
-        List<Integer> dataset = Arrays.asList(64, 34, 25, 12, 22, 11, 90);
-        System.out.println(String.format("Sorted Array: %s", bubbleSort(dataset)));
-    }
-}`
-  },
-
-  quicksort: {
-    title: "3. QuickSort",
-    summary: "Translated Python list comprehensions and dynamic list slicing into typed java.util.ArrayList<Integer> partitions.",
-    stdout: "Sorted Dataset: [11, 12, 22, 25, 33, 45, 64, 90]",
-    py: `def quicksort(arr: list[int]) -> list[int]:
-    """ Recursive QuickSort using functional partitioning """
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x < pivot]
-    middle = [x for x in arr if x == pivot]
-    right = [x for x in arr if x > pivot]
-    return quicksort(left) + middle + quicksort(right)
-
-if __name__ == "__main__":
-    dataset = [64, 25, 12, 22, 11, 90, 45, 33]
-    sorted_data = quicksort(dataset)
-    print(f"Sorted Dataset: {sorted_data}")`,
-    java: `package com.jforge.ciap;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (QuickSort Partition)
- */
-public class Solution {
-
-    public static List<Integer> quicksort(List<Integer> arr) {
-        if (arr == null || arr.size() <= 1) {
-            return arr;
-        }
-
-        int pivot = arr.get(arr.size() / 2);
-        List<Integer> left = new ArrayList<>();
-        List<Integer> middle = new ArrayList<>();
-        List<Integer> right = new ArrayList<>();
-
-        for (int x : arr) {
-            if (x < pivot) {
-                left.add(x);
-            } else if (x == pivot) {
-                middle.add(x);
-            } else {
-                right.add(x);
-            }
-        }
-
-        List<Integer> result = new ArrayList<>(quicksort(left));
-        result.addAll(middle);
-        result.addAll(quicksort(right));
-        return result;
-    }
-
-    public static void main(String[] args) {
-        List<Integer> dataset = Arrays.asList(64, 25, 12, 22, 11, 90, 45, 33);
-        List<Integer> sortedData = quicksort(dataset);
-        System.out.println(String.format("Sorted Dataset: %s", sortedData));
-    }
-}`
-  },
-
-  factorial: {
-    title: "4. Factorial",
-    summary: "Promoted Python int to 64-bit Java long and mapped ValueError to IllegalArgumentException.",
-    stdout: "Factorial(0) = 1\nFactorial(5) = 120\nFactorial(10) = 3628800\nFactorial(12) = 479001600",
-    py: `def calculate_factorial(n: int) -> int:
-    """ Computes n! recursively with negative bound check """
-    if n < 0:
-        raise ValueError("Factorial is undefined for negative integers")
-    if n in (0, 1):
-        return 1
-    return n * calculate_factorial(n - 1)
-
-if __name__ == "__main__":
-    for num in [0, 5, 10, 12]:
-        print(f"Factorial({num}) = {calculate_factorial(num)}")`,
-    java: `package com.jforge.ciap;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (Recursive Factorial)
- */
-public class Solution {
-
-    public static long calculateFactorial(int n) {
-        if (n < 0) {
-            throw new IllegalArgumentException("Factorial is undefined for negative integers");
-        }
-        if (n == 0 || n == 1) {
-            return 1L;
-        }
-        return (long) n * calculateFactorial(n - 1);
-    }
-
-    public static void main(String[] args) {
-        int[] testValues = {0, 5, 10, 12};
-        for (int num : testValues) {
-            System.out.printf("Factorial(%d) = %d%n", num, calculateFactorial(num));
-        }
-    }
-}`
-  },
-
-  freqmap: {
-    title: "5. Frequency Map",
-    summary: "Mapped Python dict and .get(k, 0) idiom to java.util.LinkedHashMap and Map.getOrDefault().",
-    stdout: "Token Map: {genai=2, api=2, webhook=1, java=1, transpiler=1}",
-    py: `def token_frequencies(text: str) -> dict[str, int]:
-    """ Counts normalized alphanumeric word occurrences """
-    freq: dict[str, int] = {}
-    for raw_token in text.lower().split():
-        token = "".join(ch for ch in raw_token if ch.isalnum())
-        if token:
-            freq[token] = freq.get(token, 0) + 1
-    return freq
-
-if __name__ == "__main__":
-    sample = "GenAI API webhook GenAI Java transpiler API"
-    print(f"Token Map: {token_frequencies(sample)}")`,
-    java: `package com.jforge.ciap;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (Word Frequency Map)
- */
-public class Solution {
-
-    public static Map<String, Integer> tokenFrequencies(String text) {
-        Map<String, Integer> freq = new LinkedHashMap<>();
-        if (text == null || text.isBlank()) {
-            return freq;
-        }
-
-        String[] rawTokens = text.toLowerCase().split("\\\\s+");
-        for (String rawToken : rawTokens) {
-            String token = rawToken.replaceAll("[^a-zA-Z0-9]", "");
-            if (!token.isEmpty()) {
-                freq.put(token, freq.getOrDefault(token, 0) + 1);
-            }
-        }
-        return freq;
-    }
-
-    public static void main(String[] args) {
-        String sample = "GenAI API webhook GenAI Java transpiler API";
-        System.out.println("Token Map: " + tokenFrequencies(sample));
-    }
-}`
-  },
-
-  students: {
-    title: "6. Student Marks",
-    summary: "Translated Python dictionary records and list filtering into Java 17 Record type and Stream pipeline.",
-    stdout: "Honors List: [Aryan (CGPA: 8.71), Meera (CGPA: 9.12)]",
-    py: `def filter_top_performers(students: list[dict], threshold: float = 8.5) -> list[str]:
-    """ Returns names of students whose CGPA meets or exceeds threshold """
-    top_list = []
-    for s in students:
-        if s.get("cgpa", 0.0) >= threshold:
-            top_list.append(f"{s['name']} (CGPA: {s['cgpa']})")
-    return top_list
-
-if __name__ == "__main__":
-    batch = [
-        {"name": "Aryan", "cgpa": 8.71},
-        {"name": "Rohan", "cgpa": 8.15},
-        {"name": "Meera", "cgpa": 9.12}
-    ]
-    print("Honors List:", filter_top_performers(batch, 8.5))`,
-    java: `package com.jforge.ciap;
-
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * Transpiled by J-Forge AST Engine (Target: Java 17 LTS)
- * Source: source_module.py (Student Marks Processor)
- */
-public class Solution {
-
-    public record Student(String name, double cgpa) {}
-
-    public static List<String> filterTopPerformers(List<Student> students, double threshold) {
-        List<String> topList = new ArrayList<>();
-        for (Student s : students) {
-            if (s.cgpa() >= threshold) {
-                topList.add(String.format("%s (CGPA: %.2f)", s.name(), s.cgpa()));
-            }
-        }
-        return topList;
-    }
-
-    public static void main(String[] args) {
-        List<Student> batch = List.of(
-            new Student("Aryan", 8.71),
-            new Student("Rohan", 8.15),
-            new Student("Meera", 9.12)
-        );
-        System.out.println("Honors List: " + filterTopPerformers(batch, 8.5));
-    }
-}`
-  },
-
-  fastapi: {
-    title: "7. FastAPI → Spring Boot",
-    summary: "Modernized Python FastAPI REST controller and Pydantic DTOs into Spring Boot 3 @RestController, @PostMapping, and ResponseEntity.",
-    stdout: "SpringApplication: Started Solution on port 8080\nPOST /api/v1/orders -> HTTP 201 Created: {order_id: ORD-9948, total_amount: 1499.50, status: CONFIRMED}",
-    py: `from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel
-from typing import Optional
-
-app = FastAPI(title="Order Processing Microservice")
-
-class OrderRequest(BaseModel):
-    item_id: str
-    quantity: int
-    unit_price: float
-    discount_code: Optional[str] = None
-
-@app.post("/api/v1/orders", status_code=status.HTTP_201_CREATED)
-def create_order(order: OrderRequest):
-    if order.quantity <= 0 or order.unit_price <= 0:
-        raise HTTPException(status_code=400, detail="Invalid order quantities")
-    total = order.quantity * order.unit_price
-    return {"order_id": "ORD-9948", "total_amount": total, "status": "CONFIRMED"}
-
-if __name__ == "__main__":
-    sample_order = OrderRequest(item_id="PROD-772", quantity=5, unit_price=299.90)
-    print(create_order(sample_order))`,
-    java: `package com.jforge.ciap;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import java.util.Map;
-
-/**
- * Transpiled from FastAPI to Spring Boot 3 REST Controller
- * Source: order_service.py (FastAPI Microservice)
- */
-@SpringBootApplication
-@RestController
-@RequestMapping("/api/v1/orders")
-public class Solution {
-
-    public record OrderRequest(
-        String itemId,
-        int quantity,
-        double unitPrice,
-        String discountCode
-    ) {}
-
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> createOrder(@RequestBody OrderRequest order) {
-        if (order.quantity() <= 0 || order.unitPrice() <= 0) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "Invalid order quantities"));
-        }
-        double total = order.quantity() * order.unitPrice();
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(Map.of(
-                "order_id", "ORD-9948",
-                "total_amount", total,
-                "status", "CONFIRMED"
-            ));
-    }
-
-    public static void main(String[] args) {
-        OrderRequest sample = new OrderRequest("PROD-772", 5, 299.90, null);
-        double total = sample.quantity() * sample.unitPrice();
-        System.out.printf("{order_id: ORD-9948, total_amount: %.2f, status: CONFIRMED}%n", total);
-    }
-}`
-  },
-
-  pydantic: {
-    title: "8. Pydantic → Java Record",
-    summary: "Mapped Pydantic schema validation into an immutable Java 17 Record with compact constructor null-safety invariants.",
-    stdout: "User [aryan@jforge.io] Admin Access: true\nValidation passed: Immutable Java 17 Record instantiated safely.",
-    py: `from pydantic import BaseModel, Field
-from typing import List
-
-class UserProfile(BaseModel):
-    user_id: str
-    email: str
-    roles: List[str] = ["VIEWER"]
-    active: bool = True
-
-    def has_admin_privilege(self) -> bool:
-        return "ADMIN" in self.roles
-
-if __name__ == "__main__":
-    user = UserProfile(
-        user_id="usr_491",
-        email="aryan@jforge.io",
-        roles=["ADMIN", "ENGINEER"],
-        active=True
-    )
-    print(f"User [{user.email}] Admin Access: {user.has_admin_privilege()}")`,
-    java: `package com.jforge.ciap;
-
-import java.util.List;
-import java.util.Objects;
-
-/**
- * Transpiled from Pydantic Schema to Immutable Java 17 Record
- * Source: user_schema.py (Pydantic Model)
- */
-public class Solution {
-
-    public record UserProfile(
-        String userId,
-        String email,
-        List<String> roles,
-        boolean active
-    ) {
-        public UserProfile {
-            Objects.requireNonNull(userId, "userId must not be null");
-            Objects.requireNonNull(email, "email must not be null");
-            roles = roles == null ? List.of("VIEWER") : List.copyOf(roles);
-        }
-
-        public boolean hasAdminPrivilege() {
-            return roles != null && roles.contains("ADMIN");
-        }
-    }
-
-    public static void main(String[] args) {
-        UserProfile user = new UserProfile("usr_491", "aryan@jforge.io", List.of("ADMIN", "ENGINEER"), true);
-        System.out.printf("User [%s] Admin Access: %b%n", user.email(), user.hasAdminPrivilege());
-    }
-}`
-  }
+import { generateJUnitTestSuite } from '../lib/junit-generator';
+
+const DEFAULT_SETTINGS = {
+  theme: 'dark',
+  defaultJavaVersion: 'Java 21 LTS',
+  defaultMode: 'strict',
+  fontSize: 13,
+  wordWrap: false,
+  showLineNumbers: true,
+  autoSaveDraft: true,
+  reducedMotion: false,
 };
-
-function computeProgramStdout(pyCode) {
-  if (!pyCode || !pyCode.trim()) return '[Empty input. Add Python code and click Transpile to execute.]';
-
-  const trimmed = pyCode.trim();
-  for (const p of Object.values(PRESETS)) {
-    if (p.py.trim() === trimmed && p.stdout) {
-      return p.stdout;
-    }
-  }
-
-  const outputs = evaluatePythonStdout(pyCode);
-  return outputs.length > 0
-    ? outputs.join('\n')
-    : 'Execution verified successfully with exit code 0.';
-}
 
 const INITIAL_SAMPLE_WEBHOOK = {
   id: 'wh_ciap_init99',
@@ -533,7 +44,7 @@ const INITIAL_SAMPLE_WEBHOOK = {
   targetUrl: '/api/v1/webhook-demo',
   headers: {
     'Content-Type': 'application/json',
-    'User-Agent': 'JForge-Webhook-Dispatcher/1.0 (BTIN337-CIAP)',
+    'User-Agent': 'JForge-Webhook-Dispatcher/1.0',
     'X-Event-Type': 'code.conversion.completed',
     'X-JForge-Delivery': 'wh_ciap_init99',
     'X-Signature-SHA256': '',
@@ -547,65 +58,105 @@ const INITIAL_SAMPLE_WEBHOOK = {
     data: {
       source_language: 'python',
       target_language: 'java',
-      execution_time_ms: 38,
-      python_lines: 27,
-      java_preview: 'package com.jforge.ciap;\n\npublic class Solution {\n    public static class BankAccount {\n// ...',
+      execution_time_ms: 0,
+      python_lines: 0,
+      java_preview: '// Ready',
     },
   },
 };
 
+function computeProgramStdout(pyCode) {
+  if (!pyCode || !pyCode.trim()) return '';
+  const outputs = evaluatePythonStdout(pyCode);
+  return outputs.length > 0 ? outputs.join('\n') : '';
+}
+
 export default function JForgeOrchestrator() {
-  // Theme state: 'cupertino' | 'brutalist' | 'carbon'
-  const [theme, setTheme] = useState('cupertino');
-
-  // Active view: 'studio' | 'playground' | 'webhooks' | 'docs'
+  // Settings & Clean Dark/Light Theme (Old 3-UI themes removed)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [activeView, setActiveView] = useState('studio');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
-  // Studio state
-  const [currentPresetKey, setCurrentPresetKey] = useState('bank');
-  const [javaTargetVersion, setJavaTargetVersion] = useState('Java 17 LTS');
-  const [pythonCode, setPythonCode] = useState(PRESETS.bank.py);
-  const [javaCode, setJavaCode] = useState(PRESETS.bank.java);
-  const [executionStdout, setExecutionStdout] = useState(PRESETS.bank.stdout);
-  const [isTranspiling, setIsTranspiling] = useState(false);
-  const [latency, setLatency] = useState(42);
-  const [compilerSummary, setCompilerSummary] = useState(PRESETS.bank.summary);
-  const [bypassCache, setBypassCache] = useState(false);
-  const [isCacheHit, setIsCacheHit] = useState(false);
-  const [selfHealing, setSelfHealing] = useState({
-    performed: true,
-    passes: 0,
-    repaired: false,
-    repaired_by: 'clean_ast',
-    syntax_valid: true,
-    original_issues: [],
-    corrections_applied: [],
-    diagnostics: {
-      brace_balance: 'BALANCED',
-      import_resolution: 'COMPLETE',
-      structure_check: 'VALID',
-      quality_score: 100,
+  // Clean Empty Workspace State (Zero auto-loaded presets)
+  const [workspaceFiles, setWorkspaceFiles] = useState([
+    {
+      id: 'tab_1',
+      title: 'Untitled conversion',
+      filename: 'main.py',
+      pythonCode: '',
+      javaCode: '',
+      javaTargetVersion: 'Java 21 LTS',
     },
+  ]);
+  const [activeFileId, setActiveFileId] = useState('tab_1');
+  const [conversionTitle, setConversionTitle] = useState('Untitled conversion');
+  const [pythonCode, setPythonCode] = useState('');
+  const [javaCode, setJavaCode] = useState('');
+  const [selectedPython, setSelectedPython] = useState('');
+  const [javaTargetVersion, setJavaTargetVersion] = useState('Java 21 LTS');
+  const [conversionMode, setConversionMode] = useState('strict');
+  const [conversionConfig, setConversionConfig] = useState({
+    packageName: 'com.jforge.ciap',
+    className: 'Solution',
+    includeComments: true,
+    includeJavadoc: false,
+    includeMain: true,
   });
+  const [additionalInstructions, setAdditionalInstructions] = useState('');
 
-  // Auth & Engine State (uses server-configured GEMINI_API_KEY automatically)
+  const [executionStdout, setExecutionStdout] = useState('');
+  const [isTranspiling, setIsTranspiling] = useState(false);
+  const [bypassCache, setBypassCache] = useState(false);
+  const [selfHealing, setSelfHealing] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('Auto-saved locally');
+
+  // Auth, History & Verification State
   const [authUser, setAuthUser] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authPromptReason, setAuthPromptReason] = useState('');
-  const [activeEngine, setActiveEngine] = useState('Gemini Live');
-  const [additionalInstructions, setAdditionalInstructions] = useState('');
-  const [guestRemaining, setGuestRemaining] = useState(3);
   const [history, setHistory] = useState([]);
   const [verificationReport, setVerificationReport] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isRepairing, setIsRepairing] = useState(false);
   const [programStdin, setProgramStdin] = useState('');
   const [multiTestCases, setMultiTestCases] = useState([]);
+  const [previousJavaCode, setPreviousJavaCode] = useState(null);
+  const [generatedUnitTest, setGeneratedUnitTest] = useState('');
+  const [isGeneratingTests, setIsGeneratingTests] = useState(false);
 
-  // Global Toast & Copy Feedback
+  // Gateway & Webhook State
+  const [pgApiKey, setPgApiKey] = useState('');
+  const [pgRequestBody, setPgRequestBody] = useState(
+    JSON.stringify(
+      {
+        source_language: 'python',
+        target_language: 'java',
+        java_version: '21',
+        python_code: 'def square(x: int) -> int:\n    return x * x\n\nprint(square(9))',
+        webhook_url: '/api/v1/webhook-demo',
+      },
+      null,
+      2
+    )
+  );
+  const [pgStatusBadge, setPgStatusBadge] = useState({ code: 200, text: 'Ready', color: 'emerald' });
+  const [pgResponseLatency, setPgResponseLatency] = useState(0);
+  const [pgResponseHeaders, setPgResponseHeaders] = useState({});
+  const [pgResponseBody, setPgResponseBody] = useState('');
+  const [isPgLoading, setIsPgLoading] = useState(false);
+  const [webhookEndpointUrl, setWebhookEndpointUrl] = useState('/api/v1/webhook-demo');
+  const [webhookSigningSecret, setWebhookSigningSecret] = useState('');
+  const [webhookEventTopic, setWebhookEventTopic] = useState('code.conversion.completed');
+  const [webhookDeliveries, setWebhookDeliveries] = useState([INITIAL_SAMPLE_WEBHOOK]);
+  const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
+
+  // Toast State (declared early before helpers to avoid use-before-define)
   const [toast, setToast] = useState({ visible: false, message: '' });
   const [copiedId, setCopiedId] = useState(null);
   const toastTimerRef = useRef(null);
+  const cancelRef = useRef({ cancelled: false, abortController: null });
 
   const showToast = (message) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -619,142 +170,6 @@ export default function JForgeOrchestrator() {
     setAuthPromptReason(reason);
     setAuthModalOpen(true);
   };
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch {
-      // Clear client state cleanly regardless
-    }
-    setAuthUser(null);
-    showToast('Signed out of J-Forge');
-  };
-
-  // Playground state
-  const [pgApiKey, setPgApiKey] = useState('');
-  const [pgRequestBody, setPgRequestBody] = useState(
-    JSON.stringify(
-      {
-        source_language: "python",
-        target_language: "java",
-        java_version: "17",
-        python_code: "def square(x: int) -> int:\n    return x * x\n\nprint(square(9))",
-        webhook_url: "/api/v1/webhook-demo",
-      },
-      null,
-      2
-    )
-  );
-  const [pgStatusBadge, setPgStatusBadge] = useState({
-    code: 200,
-    text: '200 OK',
-    color: 'emerald',
-  });
-  const [pgResponseLatency, setPgResponseLatency] = useState(39);
-  const [pgResponseHeaders, setPgResponseHeaders] = useState({
-    'content-type': 'application/json; charset=utf-8',
-    'x-webhook-dispatched': 'false',
-  });
-  const [pgResponseBody, setPgResponseBody] = useState(
-    JSON.stringify(
-      {
-        status: "success",
-        http_code: 200,
-        event: "code.conversion.completed",
-        timestamp: "2026-11-15T10:30:00.000Z",
-        data: {
-          source_language: "python",
-          target_language: "java",
-          java_version: "17",
-          execution_time_ms: 39,
-          java_code: "public class Solution {\n    public static Object square(Object x) {\n        return x * x;\n    }\n}",
-        },
-        webhook_delivery: {
-          dispatched: true,
-          target_url: "/api/v1/webhook-demo",
-          status_code: 200,
-        },
-      },
-      null,
-      2
-    )
-  );
-  const [isPgLoading, setIsPgLoading] = useState(false);
-
-  // Webhook state (signing defaults cleanly to server WEBHOOK_SECRET unless overridden)
-  const [webhookEndpointUrl, setWebhookEndpointUrl] = useState('/api/v1/webhook-demo');
-  const [webhookSigningSecret, setWebhookSigningSecret] = useState('');
-  const [webhookEventTopic, setWebhookEventTopic] = useState('code.conversion.completed');
-  const [webhookDeliveries, setWebhookDeliveries] = useState([INITIAL_SAMPLE_WEBHOOK]);
-  const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
-
-  // Load authenticated Google session status + hydrate sample webhook signature when signed in
-  useEffect(() => {
-    let active = true;
-
-    const params = new URLSearchParams(window.location.search);
-    const authErr = params.get('auth_error');
-    if (authErr) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-
-    fetch('/api/auth/session', { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((sess) => {
-        if (!active) return;
-        const user = sess?.authenticated ? sess.user : null;
-        setAuthUser(user);
-        try {
-          const savedTheme = localStorage.getItem('jforge_theme');
-          if (savedTheme && ['cupertino', 'brutalist', 'carbon'].includes(savedTheme)) {
-            setTheme(savedTheme);
-          }
-          const saved = JSON.parse(localStorage.getItem('jforge_history') || '[]');
-          if (Array.isArray(saved)) setHistory(saved.slice(0, 5));
-        } catch {
-          // Ignore storage errors
-        }
-
-        if (authErr) {
-          setAuthPromptReason(`Google sign-in did not complete (${authErr}).`);
-          setAuthModalOpen(true);
-        }
-
-        if (user) {
-          fetch('/api/history', { cache: 'no-store' })
-            .then((r) => r.json())
-            .then((h) => {
-              if (active && h?.ok && Array.isArray(h.items) && h.items.length > 0) {
-                setHistory(h.items.slice(0, 10));
-              }
-            })
-            .catch(() => {});
-          studioGetSampleSignatureAction()
-            .then((res) => {
-              if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
-              setWebhookDeliveries((prev) =>
-                prev.map((item, idx) =>
-                  idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
-                    ? {
-                        ...item,
-                        headers: {
-                          ...item.headers,
-                          ...res.headers,
-                        },
-                      }
-                    : item
-                )
-              );
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const copyToClipboard = (text, id, toastMsg) => {
     if (navigator?.clipboard?.writeText) {
@@ -772,18 +187,277 @@ export default function JForgeOrchestrator() {
     showToast(toastMsg || 'Copied to clipboard');
   };
 
-  // Record a Webhook event via server delivery report or SSRF-safe server dispatch action
-  const recordWebhookDelivery = async (
-    eventType,
-    statusCode,
-    pySnippet,
-    javaSnippet,
-    latencyMs,
-    serverDelivery = null
-  ) => {
-    if (serverDelivery && serverDelivery.headers && serverDelivery.payload) {
+  const applyJavaChangeWithUndo = (nextJava) => {
+    setPreviousJavaCode(javaCode);
+    setJavaCode(nextJava);
+  };
+
+  const handleUndoJava = () => {
+    if (!previousJavaCode) return;
+    setJavaCode(previousJavaCode);
+    setPreviousJavaCode(null);
+    showToast('Reverted previous Java edit');
+  };
+
+  const updateSetting = (key, value) => {
+    setSettings((prev) => {
+      const next = { ...prev, [key]: value };
+      try {
+        localStorage.setItem('jforge_settings', JSON.stringify(next));
+        if (key === 'theme') {
+          localStorage.setItem('jforge_theme', value);
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return next;
+    });
+  };
+
+  const handleClearLocalData = () => {
+    try {
+      localStorage.removeItem('jforge_draft_v2');
+      localStorage.removeItem('jforge_history');
+    } catch {
+      // Ignore
+    }
+    if (!authUser) setHistory([]);
+    setAutoSaveStatus('Local data cleared');
+    showToast('Cleared local drafts & browser history');
+  };
+
+  // Load session, settings, local draft (no API secrets stored), and server history asynchronously
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams(window.location.search);
+    const authErr = params.get('auth_error');
+    if (authErr) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((sess) => {
+        if (!active) return;
+        const user = sess?.authenticated ? sess.user : null;
+        setAuthUser(user);
+
+        try {
+          const savedSettingsRaw = localStorage.getItem('jforge_settings');
+          const parsedSettings = savedSettingsRaw ? JSON.parse(savedSettingsRaw) : null;
+          if (parsedSettings && typeof parsedSettings === 'object') {
+            const cleanTheme = ['dark', 'light'].includes(parsedSettings.theme) ? parsedSettings.theme : 'dark';
+            setSettings({ ...DEFAULT_SETTINGS, ...parsedSettings, theme: cleanTheme });
+            if (parsedSettings.defaultJavaVersion) setJavaTargetVersion(parsedSettings.defaultJavaVersion);
+            if (parsedSettings.defaultMode) setConversionMode(parsedSettings.defaultMode);
+          }
+
+          if (!parsedSettings || parsedSettings.autoSaveDraft !== false) {
+            const savedDraftRaw = localStorage.getItem('jforge_draft_v2');
+            if (savedDraftRaw) {
+              const draft = JSON.parse(savedDraftRaw);
+              if (draft && typeof draft === 'object' && (draft.pythonCode || draft.javaCode)) {
+                setConversionTitle(draft.title || 'Untitled conversion');
+                setPythonCode(draft.pythonCode || '');
+                setJavaCode(draft.javaCode || '');
+                if (draft.javaTargetVersion) setJavaTargetVersion(draft.javaTargetVersion);
+                setAutoSaveStatus('Restored local draft');
+              }
+            }
+          }
+
+          const savedHist = JSON.parse(localStorage.getItem('jforge_history') || '[]');
+          if (Array.isArray(savedHist)) setHistory(savedHist.slice(0, 25));
+        } catch {
+          // Ignore corrupted storage
+        }
+
+        if (authErr) {
+          setAuthPromptReason(`Sign-in did not complete (${authErr}).`);
+          setAuthModalOpen(true);
+        }
+
+        if (user) {
+          fetch('/api/history', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((h) => {
+              if (active && h?.ok && Array.isArray(h.items) && h.items.length > 0) {
+                setHistory(h.items.slice(0, 25));
+              }
+            })
+            .catch(() => {});
+          studioGetSampleSignatureAction()
+            .then((res) => {
+              if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
+              setWebhookDeliveries((prev) =>
+                prev.map((item, idx) =>
+                  idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
+                    ? { ...item, headers: { ...item.headers, ...res.headers } }
+                    : item
+                )
+              );
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Debounced auto-save for current conversion draft (never stores API keys or credentials)
+  useEffect(() => {
+    if (!settings.autoSaveDraft) return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          'jforge_draft_v2',
+          JSON.stringify({
+            title: conversionTitle,
+            pythonCode,
+            javaCode,
+            javaTargetVersion,
+            savedAt: new Date().toISOString(),
+          })
+        );
+        const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setAutoSaveStatus(`Auto-saved ${nowStr}`);
+      } catch {
+        setAutoSaveStatus('Draft storage full');
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [pythonCode, javaCode, conversionTitle, javaTargetVersion, settings.autoSaveDraft]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Clear client state cleanly
+    }
+    setAuthUser(null);
+    showToast('Signed out of J-Forge Studio');
+  };
+
+  // Workspace multi-file switcher
+  const handleSelectWorkspaceFile = (fileId) => {
+    setWorkspaceFiles((prev) =>
+      prev.map((f) =>
+        f.id === activeFileId ? { ...f, title: conversionTitle, pythonCode, javaCode, javaTargetVersion } : f
+      )
+    );
+    const target = workspaceFiles.find((f) => f.id === fileId);
+    if (target) {
+      setActiveFileId(target.id);
+      setConversionTitle(target.title || 'Untitled conversion');
+      setPythonCode(target.pythonCode || '');
+      setJavaCode(target.javaCode || '');
+      if (target.javaTargetVersion) setJavaTargetVersion(target.javaTargetVersion);
+      setVerificationReport(null);
+    }
+  };
+
+  const handleCreateWorkspaceFile = () => {
+    const newId = `tab_${Date.now()}`;
+    const savedCurrent = workspaceFiles.map((f) =>
+      f.id === activeFileId ? { ...f, title: conversionTitle, pythonCode, javaCode, javaTargetVersion } : f
+    );
+    const nextFile = {
+      id: newId,
+      title: `Untitled ${savedCurrent.length + 1}`,
+      filename: `script_${savedCurrent.length + 1}.py`,
+      pythonCode: '',
+      javaCode: '',
+      javaTargetVersion: settings.defaultJavaVersion || 'Java 21 LTS',
+    };
+    setWorkspaceFiles([...savedCurrent, nextFile]);
+    setActiveFileId(newId);
+    setConversionTitle(nextFile.title);
+    setPythonCode('');
+    setJavaCode('');
+    setExecutionStdout('');
+    setVerificationReport(null);
+    setActiveView('studio');
+    showToast('Created clean conversion workspace');
+  };
+
+  const handleDeleteWorkspaceFile = (fileId) => {
+    if (workspaceFiles.length <= 1) return;
+    const remaining = workspaceFiles.filter((f) => f.id !== fileId);
+    setWorkspaceFiles(remaining);
+    if (fileId === activeFileId && remaining[0]) {
+      setActiveFileId(remaining[0].id);
+      setConversionTitle(remaining[0].title);
+      setPythonCode(remaining[0].pythonCode);
+      setJavaCode(remaining[0].javaCode);
+    }
+  };
+
+  // History CRUD & Versioning
+  const handleRenameHistory = async (id, newLabel) => {
+    const clean = String(newLabel || '').trim().slice(0, 80);
+    if (!clean) return;
+    setHistory((prev) => {
+      const updated = prev.map((h) => (h.id === id ? { ...h, label: clean } : h));
+      try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    if (authUser && !String(id).startsWith('hist_')) {
+      fetch('/api/history', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, label: clean }),
+      }).catch(() => {});
+    }
+    showToast('Renamed conversion');
+  };
+
+  const handleDeleteHistory = async (id) => {
+    setHistory((prev) => {
+      const updated = prev.filter((h) => h.id !== id);
+      try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+    if (authUser && !String(id).startsWith('hist_')) {
+      fetch('/api/history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      }).catch(() => {});
+    }
+    showToast('Deleted conversion from history');
+  };
+
+  const handleDuplicateHistory = (item) => {
+    const copy = {
+      ...item,
+      id: `hist_${Date.now()}`,
+      label: `${item.label} (Copy)`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setHistory((prev) => {
+      const next = [copy, ...prev].slice(0, 25);
+      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+    showToast('Duplicated history snapshot');
+  };
+
+  const handleToggleFavorite = (id) => {
+    setHistory((prev) => {
+      const next = prev.map((h) => (h.id === id ? { ...h, favorite: !h.favorite } : h));
+      try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  // Webhooks
+  const recordWebhookDelivery = async (eventType, statusCode, pySnippet, javaSnippet, latencyMs, serverDelivery = null) => {
+    if (serverDelivery?.headers && serverDelivery?.payload) {
       const entry = {
-        id: serverDelivery.delivery_id || 'wh_' + Math.random().toString(36).substring(2, 9),
+        id: serverDelivery.delivery_id || `wh_${Date.now()}`,
         statusCode: serverDelivery.status_code ?? statusCode,
         eventType: serverDelivery.headers['X-Event-Type'] || eventType,
         timestamp: serverDelivery.headers['X-Timestamp'] || new Date().toISOString(),
@@ -804,18 +478,16 @@ export default function JForgeOrchestrator() {
       latencyMs,
       customSecret: webhookSigningSecret,
     });
-
-    if (result?.status === 401 || result?.code === 'AUTH_REQUIRED') {
-      promptSignIn(result.error || 'Please sign in with Google (Gmail) to dispatch live webhooks.');
-      return null;
+    if (result?.status === 401 || result?.code === 'AUTH_REQUIRED') return null;
+    if (result?.entry) {
+      setWebhookDeliveries((prev) => [result.entry, ...prev]);
+      setSelectedWebhookIndex(0);
+      return result.entry;
     }
-
-    const entry = result.entry;
-    setWebhookDeliveries((prev) => [entry, ...prev]);
-    setSelectedWebhookIndex(0);
-    return entry;
+    return null;
   };
 
+  // Automatic javac Repair (Max 3 Attempts)
   const handleRepairJava = async (
     pyCode = pythonCode,
     jCode = javaCode,
@@ -837,21 +509,21 @@ export default function JForgeOrchestrator() {
           compiler_error: compilerErr,
           mismatch_note: mismatchNote,
           stdin: stdinVal,
-          java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '17',
+          java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '21',
         }),
       });
       const rep = await res.json();
       if (rep?.repaired && rep.javaCode) {
-        setJavaCode(rep.javaCode);
+        applyJavaChangeWithUndo(rep.javaCode);
         if (rep.verification) {
           setVerificationReport({ ...rep.verification, repairedAttempts: rep.attempts || [] });
           if (rep.verification?.python?.ok) {
-            setExecutionStdout(rep.verification.python.stdout || '(No output)');
+            setExecutionStdout(rep.verification.python.stdout || '');
           }
         }
         showToast(`Auto-repaired (${rep.attempts?.length || 1} javac pass)`);
       } else {
-        showToast('No automatic repair patch could resolve remaining issue');
+        showToast('No automatic patch could fix remaining issue');
       }
       return rep;
     } catch {
@@ -862,15 +534,14 @@ export default function JForgeOrchestrator() {
     }
   };
 
+  // Real Semantic Verification (CPython 3.13 + OpenJDK 21)
   const runVerification = async (pyCode, jCode, stdinVal = '', casesOverride = multiTestCases) => {
     if (!pyCode?.trim() || !jCode?.trim()) return null;
+    const ctrl = new AbortController();
+    cancelRef.current.abortController = ctrl;
     setIsVerifying(true);
     try {
-      const payload = {
-        python_code: pyCode,
-        java_code: jCode,
-        stdin: stdinVal,
-      };
+      const payload = { python_code: pyCode, java_code: jCode, stdin: stdinVal };
       if (Array.isArray(casesOverride) && casesOverride.length > 0) {
         payload.test_cases = casesOverride;
       }
@@ -878,7 +549,9 @@ export default function JForgeOrchestrator() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: ctrl.signal,
       });
+      if (cancelRef.current.cancelled) return null;
       const data = await res.json();
       setVerificationReport(data);
       if (data?.status) {
@@ -886,29 +559,29 @@ export default function JForgeOrchestrator() {
           const updated = prev.map((item, i) =>
             i === 0 && item.pythonCode === pyCode ? { ...item, verifiedStatus: data.status } : item
           );
-          try {
-            localStorage.setItem('jforge_history', JSON.stringify(updated));
-          } catch {
-            // Ignore
-          }
+          try { localStorage.setItem('jforge_history', JSON.stringify(updated)); } catch {}
           return updated;
         });
       }
       if (data?.python?.ok && typeof data.python.stdout === 'string') {
-        setExecutionStdout(data.python.stdout || '(No output)');
+        setExecutionStdout(data.python.stdout);
       }
       if (data?.status === 'compilation_failed' && data.java?.compilerError) {
         await handleRepairJava(pyCode, jCode, data.java.compilerError, '', stdinVal);
       }
       return data;
-    } catch {
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        showToast('Verification cancelled');
+        return null;
+      }
       const fallbackErr = {
         status: 'inconclusive',
         compilationPassed: false,
         outputMatch: false,
         passedCases: 0,
         totalCases: 1,
-        summary: 'Unable to reach real execution sandbox.',
+        summary: 'Unable to reach execution sandbox.',
       };
       setVerificationReport(fallbackErr);
       return fallbackErr;
@@ -917,535 +590,378 @@ export default function JForgeOrchestrator() {
     }
   };
 
-  // Primary Transpiler Handler (Uses secure Server Action by default, or user-supplied Gateway Key)
-  const handleTranspile = async () => {
+  const handleCancelTranspile = () => {
+    cancelRef.current.cancelled = true;
+    if (cancelRef.current.abortController) {
+      cancelRef.current.abortController.abort();
+    }
+    setIsTranspiling(false);
+    setIsVerifying(false);
+    showToast('Conversion cancelled');
+  };
+
+  // Primary Transpile + Optional Verify Pipeline
+  const handleTranspile = async ({ verify = true } = {}) => {
     const trimmed = pythonCode.trim();
     if (!trimmed) {
-      showToast('Please provide Python source code to transpile');
+      showToast('Paste or upload Python code to convert');
       return;
     }
 
+    cancelRef.current = { cancelled: false, abortController: null };
     setIsTranspiling(true);
     const startTime = performance.now();
-    let javaResult = '';
-    let summaryNote = '';
-    let remoteSuccess = false;
-    let apiErrorStatus = null;
-    let apiErrorMessage = '';
-    let serverWebhookDelivery = null;
-
-    const targetJava = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
+    const targetJava = javaTargetVersion.replace(/[^0-9]/g, '') || '21';
 
     try {
-      try {
-        const actionRes = await studioTranspileAction({
-          pythonCode,
-          javaVersion: targetJava,
-          webhookUrl: webhookEndpointUrl,
-          bypassCache,
-          additionalInstructions,
-        });
-
-        if (typeof actionRes?.guestRemaining === 'number') {
-          setGuestRemaining(actionRes.guestRemaining);
-        }
-
-        if (actionRes?.ok) {
-          const returnedJava = actionRes?.data?.java_code;
-          if (returnedJava) {
-              javaResult = returnedJava;
-              summaryNote = actionRes?.summary || `Successfully synthesized via Server Action (${javaTargetVersion}).`;
-              remoteSuccess = true;
-              serverWebhookDelivery = actionRes?.webhook_delivery || null;
-              setIsCacheHit(actionRes?.cache?.hit || false);
-              if (actionRes?.self_healing) setSelfHealing(actionRes.self_healing);
-              if (actionRes?.engine) {
-                setActiveEngine(actionRes.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
-              }
-            }
-          } else if (actionRes?.status === 401 || actionRes?.code === 'AUTH_REQUIRED') {
-            promptSignIn(actionRes?.error || 'Please sign in with Google (Gmail) to run live Gemini transpilation.');
-            return;
-          } else {
-            apiErrorStatus = actionRes?.status || 400;
-            apiErrorMessage = actionRes?.error || `Studio transpilation failed (HTTP ${apiErrorStatus})`;
-          }
-      } catch (_networkErr) {
-        // Safe local fallback handles requests only if server is unreachable
-      }
-
-      if (apiErrorStatus) {
-        const elapsedMs = Math.max(18, Math.round(performance.now() - startTime));
-        setJavaCode(`// HTTP ${apiErrorStatus} Error from POST /api/v1/convert\n// ${apiErrorMessage}`);
-        setExecutionStdout(`[Gateway Rejected Request: HTTP ${apiErrorStatus}]\n${apiErrorMessage}`);
-        setLatency(elapsedMs);
-        setCompilerSummary(`HTTP ${apiErrorStatus}: ${apiErrorMessage}`);
-        showToast(`HTTP ${apiErrorStatus}: ${apiErrorMessage}`);
-        return;
-      }
-
-      // 2. Fallback execution only if backend API could not be reached
-      if (!javaResult) {
-        await new Promise((r) => setTimeout(r, 160));
-        const matchingPreset = Object.values(PRESETS).find((p) => p.py.trim() === trimmed);
-        if (matchingPreset) {
-          javaResult = matchingPreset.java.replace('Target: Java 17 LTS', `Target: ${javaTargetVersion}`);
-          summaryNote = matchingPreset.summary;
-        } else {
-          javaResult = `package com.jforge.ciap;\n\nimport java.util.*;\n\npublic class Solution {\n    // Translated via J-Forge AST Fallback Engine (${javaTargetVersion})\n    public static void main(String[] args) {\n        System.out.println("Transpiled successfully.");\n    }\n}`;
-          summaryNote = `Transpiled custom Python script into static ${javaTargetVersion} class structure.`;
-        }
-      }
-
-      const elapsedMs = Math.max(18, Math.round(performance.now() - startTime));
-      setJavaCode(javaResult);
-      setExecutionStdout(computeProgramStdout(pythonCode));
-      setVerificationReport(null);
-      setLatency(elapsedMs);
-      setCompilerSummary(summaryNote);
-      void runVerification(pythonCode, javaResult, programStdin);
-
-      const newEntry = {
-        id: `hist_${Date.now()}`,
-        label: pythonCode.split('\n').find((l) => l.trim())?.trim().slice(0, 36) || 'Python Snippet',
+      const actionRes = await studioTranspileAction({
         pythonCode,
-        javaCode: javaResult,
-        javaTargetVersion,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setHistory((prev) => {
-        const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 10);
-        try {
-          localStorage.setItem('jforge_history', JSON.stringify(next));
-        } catch {
-          // Ignore storage quota errors
-        }
-        return next;
+        javaVersion: targetJava,
+        webhookUrl: webhookEndpointUrl,
+        bypassCache,
+        additionalInstructions,
+        conversionMode,
+        conversionConfig,
       });
-      if (authUser) {
-        fetch('/api/history', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            label: newEntry.label,
-            pythonCode,
-            javaCode: javaResult,
-            javaTargetVersion,
-          }),
-        }).catch(() => {});
-      }
 
-      await recordWebhookDelivery(
-        'code.conversion.completed',
-        serverWebhookDelivery?.status_code || 200,
-        pythonCode,
-        javaResult,
-        elapsedMs,
-        serverWebhookDelivery
-      );
-      showToast(remoteSuccess ? 'Transpiled via /api/v1/convert' : 'Transpiled via AST Engine');
+      if (cancelRef.current.cancelled) return;
+
+      if (actionRes?.ok && actionRes?.data?.java_code) {
+        const javaResult = actionRes.data.java_code;
+        applyJavaChangeWithUndo(javaResult);
+        setExecutionStdout(computeProgramStdout(pythonCode));
+        setVerificationReport(null);
+        if (actionRes.self_healing) setSelfHealing(actionRes.self_healing);
+
+        const elapsedMs = Math.max(10, Math.round(performance.now() - startTime));
+        const newEntry = {
+          id: `hist_${Date.now()}`,
+          label:
+            conversionTitle !== 'Untitled conversion'
+              ? conversionTitle
+              : pythonCode.split('\n').find((l) => l.trim())?.trim().slice(0, 42) || 'Python Script',
+          pythonCode,
+          javaCode: javaResult,
+          javaTargetVersion,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setHistory((prev) => {
+          const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 25);
+          try { localStorage.setItem('jforge_history', JSON.stringify(next)); } catch {}
+          return next;
+        });
+        if (authUser) {
+          fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              label: newEntry.label,
+              pythonCode,
+              javaCode: javaResult,
+              javaTargetVersion,
+            }),
+          }).catch(() => {});
+        }
+        void recordWebhookDelivery(
+          'code.conversion.completed',
+          actionRes?.webhook_delivery?.status_code || 200,
+          pythonCode,
+          javaResult,
+          elapsedMs,
+          actionRes?.webhook_delivery || null
+        );
+
+        showToast(`Converted to ${javaTargetVersion}`);
+        setIsTranspiling(false);
+        if (verify && !cancelRef.current.cancelled) {
+          await runVerification(pythonCode, javaResult, programStdin);
+        }
+      } else if (actionRes?.status === 401 || actionRes?.code === 'AUTH_REQUIRED') {
+        promptSignIn(actionRes?.error || 'Sign in to continue unlimited AI conversions.');
+      } else {
+        showToast(actionRes?.error || 'Conversion rejected');
+      }
     } catch (err) {
-      setJavaCode(`// Transpilation Error: ${err.message}`);
       showToast(`Error: ${err.message}`);
     } finally {
       setIsTranspiling(false);
     }
   };
 
-  const handleTranspileRef = useRef(handleTranspile);
-  useEffect(() => {
-    handleTranspileRef.current = handleTranspile;
-  });
-
-  // Keyboard shortcut listener (Cmd/Ctrl + Enter)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        e.preventDefault();
-        handleTranspileRef.current();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Handle Preset Switching
-  const handleSelectPreset = (key) => {
-    setCurrentPresetKey(key);
-    const p = PRESETS[key];
-    if (p) {
-      setPythonCode(p.py);
-      setJavaCode(p.java.replace('Target: Java 17 LTS', `Target: ${javaTargetVersion}`));
-      setExecutionStdout(p.stdout || 'Process finished with exit code 0');
-      setCompilerSummary(p.summary);
-      showToast(`Loaded Preset: ${p.title}`);
-    }
-  };
-
-  // Clear Editor
   const handleClearEditor = () => {
     setPythonCode('');
-    setJavaCode('// Enter Python code on the left and click Transpile...');
-    setExecutionStdout('[Editor cleared. Add Python code and click Transpile to execute.]');
-    setCompilerSummary('Editor cleared. Ready for input.');
-    showToast('Python editor cleared');
+    setJavaCode('');
+    setExecutionStdout('');
+    setVerificationReport(null);
+    showToast('Workspace editors cleared');
   };
 
-  // Download Handlers
   const handleDownloadJava = () => {
-    const blob = new Blob([javaCode], { type: 'text/plain;charset=utf-8' });
+    const clsName = (conversionConfig?.className || 'Solution').trim() || 'Solution';
+    const blob = new Blob([javaCode || '// Empty'], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'Solution.java';
+    a.href = url;
+    a.download = `${clsName}.java`;
     a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Downloaded Solution.java');
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded ${clsName}.java`);
   };
 
-  const handleDownloadReadme = () => {
-    const readme = `# J-Forge: Python to Java Transpiler & API Gateway
-**Course:** Gen AI Applications (BTIN337) — Continuous Internal Assessment Practical (CIA-P)
-
-## 1. Project Overview
-J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API service powered by Google Gemini 2.5 Flash and deterministic AST mapping rules.
-
-## 2. CIA-P Requirements Fulfilled
-- **Application Development:** Full dual-pane transpiler studio + AST type mapping inspector.
-- **Deployment:** Hosted on Vercel Serverless Edge.
-- **API Integration:** Direct Google Gemini API integration (\`gemini-2.5-flash\`).
-- **API Export Methods:** \`POST /api/v1/convert\` accepting JSON payloads.
-- **Webhooks:** Asynchronous JSON event delivery (\`code.conversion.completed\`) with HMAC signatures.
-- **API Key Authentication:** Protected via \`x-api-key\` header middleware.
-- **Security:** All keys loaded strictly from \`.env.local\`.
-`;
-    const blob = new Blob([readme], { type: 'text/markdown;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'README.md';
-    a.click();
-    URL.revokeObjectURL(a.href);
-    showToast('Downloaded README.md');
-  };
-
-  // Playground Scenarios
-  const handleLoadScenario = (scenario) => {
-    const syncValidKey = () => {
-      if (configuredGatewayKey.trim()) setPgApiKey(configuredGatewayKey.trim());
-    };
-    if (scenario === 'valid') {
-      syncValidKey();
-      setPgRequestBody(
-        JSON.stringify(
-          {
-            source_language: "python",
-            target_language: "java",
-            java_version: "17",
-            python_code: "def square(x: int) -> int:\n    return x * x\n\nprint(square(9))",
-            webhook_url: webhookEndpointUrl,
-          },
-          null,
-          2
-        )
-      );
-      showToast('Loaded Scenario: 200 OK');
-    } else if (scenario === 'unauthorized') {
-      setPgApiKey('invalid-hacker-key-000');
-      setPgRequestBody(
-        JSON.stringify(
-          {
-            source_language: "python",
-            target_language: "java",
-            python_code: "print('Testing 401 Unauthorized')",
-          },
-          null,
-          2
-        )
-      );
-      showToast('Loaded Scenario: 401 Invalid Key');
-    } else if (scenario === 'badrequest') {
-      syncValidKey();
-      setPgRequestBody(
-        JSON.stringify(
-          {
-            source_language: "python",
-            target_language: "java",
-            python_code: "   ",
-          },
-          null,
-          2
-        )
-      );
-      showToast('Loaded Scenario: 400 Empty Code');
-    } else if (scenario === 'cachehit') {
-      syncValidKey();
-      setPgRequestBody(
-        JSON.stringify(
-          {
-            source_language: "python",
-            target_language: "java",
-            java_version: "17",
-            python_code: "def fibonacci(n: int) -> int:\n    return n if n <= 1 else fibonacci(n - 1) + fibonacci(n - 2)\n\nprint(fibonacci(10))",
-            bypass_cache: false,
-          },
-          null,
-          2
-        )
-      );
-      showToast('Loaded Scenario: Semantic AST Cache Hit (Sub-5ms)');
-    } else if (scenario === 'selfhealing') {
-      syncValidKey();
-      setPgRequestBody(
-        JSON.stringify(
-          {
-            source_language: "python",
-            target_language: "java",
-            java_version: "17",
-            python_code: "def build_user_registry():\n    users = ['aryan', 'sarah', 'alex']\n    scores = {'aryan': 98, 'sarah': 95}\n    return users, scores\n\nprint(build_user_registry())",
-            bypass_cache: true,
-          },
-          null,
-          2
-        )
-      );
-      showToast('Loaded Scenario: 🛡️ AST Self-Healing & Reflection');
+  const handleGenerateStandaloneTests = async () => {
+    if (!pythonCode.trim()) return;
+    setIsGeneratingTests(true);
+    try {
+      const res = await fetch('/api/v1/intelligence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate-tests',
+          python_code: pythonCode,
+          java_code: javaCode || '// empty',
+          verification_report: verificationReport,
+          java_version: javaTargetVersion.replace(/[^0-9]/g, '') || '21',
+        }),
+      });
+      const data = await res.json();
+      if (data?.testCode) setGeneratedUnitTest(data.testCode);
+    } finally {
+      setIsGeneratingTests(false);
     }
   };
 
-  // Execute Playground Request
+  // Global Shortcuts: Cmd/Ctrl + Enter & Cmd/Ctrl + K
+  const actionsRef = useRef({ handleTranspile });
+  useEffect(() => {
+    actionsRef.current = { handleTranspile };
+  });
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        actionsRef.current.handleTranspile({ verify: true });
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Command Palette Items
+  const commands = useMemo(
+    () => [
+      { id: 'convert-verify', category: 'Run', label: 'Convert & Verify Code', shortcut: '⌘↵', disabled: !pythonCode.trim(), run: () => handleTranspile({ verify: true }) },
+      { id: 'convert-only', category: 'Run', label: 'Convert Only (Skip Sandbox)', disabled: !pythonCode.trim(), run: () => handleTranspile({ verify: false }) },
+      { id: 'new-conv', category: 'File', label: 'New Blank Conversion', run: handleCreateWorkspaceFile },
+      { id: 'assistant', category: 'AI', label: assistantOpen ? 'Hide AI Assistant' : 'Open AI Assistant', run: () => setAssistantOpen((v) => !v) },
+      { id: 'ast-diff', category: 'View', label: 'Open Python vs Java AST Diff', run: () => setActiveView('comparison') },
+      { id: 'analysis', category: 'View', label: 'Open Compatibility, Dependencies & Quality', run: () => setActiveView('analysis') },
+      { id: 'history', category: 'View', label: 'Open Conversion History', run: () => setActiveView('history') },
+      { id: 'tests', category: 'View', label: 'Open JUnit 5 Unit Tests', run: () => setActiveView('tests') },
+      { id: 'download-java', category: 'Export', label: 'Download Java Source (.java)', run: handleDownloadJava },
+      { id: 'toggle-theme', category: 'Theme', label: settings.theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode', run: () => updateSetting('theme', settings.theme === 'dark' ? 'light' : 'dark') },
+      { id: 'settings', category: 'View', label: 'Open Studio Settings', run: () => setActiveView('settings') },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pythonCode, assistantOpen, settings.theme]
+  );
+
+  // API Playground helpers
+  const generatedCurl = useMemo(() => {
+    const clean = (pgRequestBody || '').replace(/\n/g, ' ');
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://py2java-transpiler.vercel.app';
+    return `curl -X POST ${origin}/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${pgApiKey || '<YOUR_APP_API_KEY>'}" \\\n  -d '${clean}'`;
+  }, [pgApiKey, pgRequestBody]);
+
+  const handleLoadScenario = (scenario) => {
+    if (scenario === 'valid') {
+      setPgRequestBody(JSON.stringify({ source_language: 'python', target_language: 'java', java_version: '21', python_code: 'print(2 + 2)', webhook_url: webhookEndpointUrl }, null, 2));
+    } else if (scenario === 'unauthorized') {
+      setPgApiKey('invalid-key');
+    } else if (scenario === 'badrequest') {
+      setPgRequestBody(JSON.stringify({ source_language: 'python', target_language: 'java', python_code: '  ' }, null, 2));
+    }
+  };
+
   const handleExecutePlayground = async () => {
     setIsPgLoading(true);
-    const startTime = performance.now();
-    let elapsed = 0;
-
+    const start = performance.now();
     try {
       let parsedBody;
       try {
         parsedBody = JSON.parse(pgRequestBody);
-      } catch (jsonErr) {
-        elapsed = Math.floor(Math.random() * 20) + 18;
+      } catch (err) {
         setPgStatusBadge({ code: 400, text: '400 Bad Request', color: 'amber' });
-        setPgResponseLatency(elapsed);
-        setPgResponseHeaders({
-          'content-type': 'application/json; charset=utf-8',
-          'x-client-validation': 'malformed-json',
-        });
-        setPgResponseBody(
-          JSON.stringify(
-            {
-              status: "error",
-              http_code: 400,
-              error: "Malformed JSON",
-              message: jsonErr.message,
-            },
-            null,
-            2
-          )
-        );
-        showToast('HTTP 400: Malformed JSON');
-        setIsPgLoading(false);
+        setPgResponseBody(JSON.stringify({ error: 'Malformed JSON', message: err.message }, null, 2));
         return;
       }
-
-      // Try hitting /api/v1/convert
-      try {
-        const liveRes = await fetch('/api/v1/convert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': pgApiKey,
-          },
-          body: pgRequestBody,
-        });
-
-        elapsed = Math.max(18, Math.round(performance.now() - startTime));
-        setPgResponseLatency(elapsed);
-
-        const resData = await liveRes.json();
-        const capturedHeaders = {};
-        for (const hName of [
-          'content-type',
-          'x-cache',
-          'x-cache-hits',
-          'x-execution-time-ms',
-          'x-self-healing-passes',
-          'x-self-healing-quality',
-          'x-ratelimit-limit',
-          'x-ratelimit-remaining',
-          'x-ratelimit-reset',
-        ]) {
-          const val = liveRes.headers.get(hName);
-          if (val !== null) capturedHeaders[hName] = val;
-        }
-        capturedHeaders['x-webhook-dispatched'] = String(Boolean(resData?.webhook_delivery?.dispatched));
-        setPgResponseHeaders(capturedHeaders);
-
-        const statusText = `${liveRes.status} ${
-          liveRes.status === 200 ? 'OK' : liveRes.status === 401 ? 'Unauthorized' : liveRes.status === 400 ? 'Bad Request' : liveRes.status === 429 ? 'Too Many Requests' : 'Error'
-        }`;
-        const color = liveRes.status === 200 ? 'emerald' : liveRes.status === 401 || liveRes.status === 429 ? 'rose' : 'amber';
-        setPgStatusBadge({ code: liveRes.status, text: statusText, color });
-        setPgResponseBody(JSON.stringify(resData, null, 2));
-
-        if (liveRes.ok) {
-          await recordWebhookDelivery(
-            'code.conversion.completed',
-            resData?.webhook_delivery?.status_code || 200,
-            parsedBody.python_code || '',
-            resData?.data?.java_code || '',
-            elapsed,
-            resData?.webhook_delivery || null
-          );
-        }
-        showToast(`HTTP ${liveRes.status}: Response received`);
-        setIsPgLoading(false);
-        return;
-      } catch (fetchErr) {
-        elapsed = Math.max(1, Math.round(performance.now() - startTime));
-        setPgResponseLatency(elapsed);
-        setPgStatusBadge({ code: 503, text: '503 Unreachable', color: 'rose' });
-        setPgResponseHeaders({ 'content-type': 'application/json; charset=utf-8', 'x-webhook-dispatched': 'false' });
-        setPgResponseBody(
-          JSON.stringify(
-            {
-              status: 'error',
-              http_code: 503,
-              error: 'Service Unreachable',
-              message: fetchErr?.message || 'Unable to reach POST /api/v1/convert.',
-            },
-            null,
-            2
-          )
-        );
-        showToast('Network Error: Could not reach /api/v1/convert');
+      const res = await fetch('/api/v1/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': pgApiKey },
+        body: pgRequestBody,
+      });
+      const data = await res.json();
+      setPgResponseLatency(Math.max(5, Math.round(performance.now() - start)));
+      setPgStatusBadge({ code: res.status, text: `${res.status}`, color: res.ok ? 'emerald' : 'rose' });
+      setPgResponseHeaders({ 'content-type': 'application/json', 'x-cache': res.headers.get('x-cache') || 'MISS' });
+      setPgResponseBody(JSON.stringify(data, null, 2));
+      if (res.ok) {
+        void recordWebhookDelivery('code.conversion.completed', 200, parsedBody.python_code || '', data?.data?.java_code || '', 20, data?.webhook_delivery || null);
       }
     } finally {
       setIsPgLoading(false);
     }
   };
 
-  const generatedCurl = useMemo(() => {
-    const clean = (pgRequestBody || '').replace(/\n/g, ' ');
-    const origin =
-      typeof window !== 'undefined' ? window.location.origin : 'https://py2java-transpiler.vercel.app';
-    const displayKey = pgApiKey || '<YOUR_APP_API_KEY>';
-    return `curl -X POST ${origin}/api/v1/convert \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${displayKey}" \\\n  -d '${clean}'`;
-  }, [pgApiKey, pgRequestBody]);
-
-  // Webhook actions
-  const handleReplayWebhook = async (idx) => {
-    const orig = webhookDeliveries[idx];
-    if (!orig) return;
-    const entry = await recordWebhookDelivery(
-      orig.eventType + '.replay',
-      200,
-      'replayed',
-      orig.payload?.data?.java_preview || '',
-      22
-    );
-    if (entry) {
-      showToast(`Replayed webhook ${orig.id} (HTTP ${entry.statusCode})`);
-    }
-  };
-
-  const handleClearWebhookLogs = () => {
-    setWebhookDeliveries([]);
-    setSelectedWebhookIndex(0);
-    showToast('Webhook logs cleared');
+  const handleDownloadReadme = () => {
+    const md = `# J-Forge Studio\nPython 3 to Java LTS Conversion, Static Compatibility Scanning & Verification IDE.`;
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'README.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   return (
-    <div data-theme={theme} className="min-h-screen flex flex-col antialiased selection:bg-amber-300 selection:text-black">
-      {/* Top Global Navigation Bar */}
+    <div
+      data-theme={settings.theme}
+      className={`min-h-screen flex flex-col antialiased ${settings.reducedMotion ? 'reduced-motion' : ''}`}
+      style={{ backgroundColor: 'var(--bg-app)', color: 'var(--text-main)' }}
+    >
+      {/* Top IDE Bar */}
       <Navigation
-        theme={theme}
-        setTheme={(next) => {
-          setTheme(next);
-          try {
-            localStorage.setItem('jforge_theme', next);
-          } catch {
-            // Ignore storage errors
-          }
-        }}
-        activeEngine={activeEngine}
-        showToast={showToast}
+        theme={settings.theme}
+        onToggleTheme={() => updateSetting('theme', settings.theme === 'dark' ? 'light' : 'dark')}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onOpenSettings={() => setActiveView('settings')}
+        onToggleAssistant={() => setAssistantOpen((v) => !v)}
+        assistantOpen={assistantOpen}
         authUser={authUser}
         onLogout={handleLogout}
       />
 
-      {/* Main Shell (Sidebar Rail + Active Workspace View) */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-3.5rem)]">
+      {/* Main Studio Shell */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-3rem)]">
         <SidebarRail
           activeView={activeView}
           setActiveView={setActiveView}
-          latency={latency}
-          webhookCount={webhookDeliveries.length}
+          assistantOpen={assistantOpen}
+          onToggleAssistant={() => setAssistantOpen((v) => !v)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         />
 
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto space-y-5 max-w-[1600px] w-full mx-auto">
-          {activeView === 'overview' && (
-            <OverviewDashboard
-              authUser={authUser}
-              history={history}
-              verificationReport={verificationReport}
-              onOpenStudio={() => setActiveView('studio')}
-              onOpenComparison={() => setActiveView('comparison')}
-              onRestoreHistory={(entry) => {
-                setPythonCode(entry.pythonCode);
-                setJavaCode(entry.javaCode);
-                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
-                setExecutionStdout(computeProgramStdout(entry.pythonCode));
-                showToast('Restored from history');
-              }}
-            />
-          )}
-
+        <main className="flex-1 p-3 sm:p-4 lg:p-5 overflow-y-auto min-w-0 max-w-[1600px] w-full mx-auto">
           {activeView === 'studio' && (
             <TranspilerStudio
+              conversionTitle={conversionTitle}
+              onChangeTitle={setConversionTitle}
               pythonCode={pythonCode}
               setPythonCode={setPythonCode}
               javaCode={javaCode}
+              setJavaCode={setJavaCode}
               javaTargetVersion={javaTargetVersion}
               setJavaTargetVersion={setJavaTargetVersion}
+              conversionMode={conversionMode}
+              setConversionMode={setConversionMode}
+              conversionConfig={conversionConfig}
+              setConversionConfig={setConversionConfig}
+              additionalInstructions={additionalInstructions}
+              setAdditionalInstructions={setAdditionalInstructions}
               isTranspiling={isTranspiling}
               onTranspile={handleTranspile}
-              currentPresetKey={currentPresetKey}
-              onSelectPreset={handleSelectPreset}
-              presets={PRESETS}
+              onCancelTranspile={handleCancelTranspile}
+              onNewConversion={handleCreateWorkspaceFile}
               onClearEditor={handleClearEditor}
-              latency={latency}
-              compilerSummary={compilerSummary}
               executionStdout={executionStdout}
               onDownloadJava={handleDownloadJava}
               copyToClipboard={copyToClipboard}
               copiedId={copiedId}
-              onNavigateToWebhooks={() => setActiveView('webhooks')}
               bypassCache={bypassCache}
               setBypassCache={setBypassCache}
-              isCacheHit={isCacheHit}
               selfHealing={selfHealing}
-              gatewayApiKey=""
-              onRequireAuth={promptSignIn}
-              additionalInstructions={additionalInstructions}
-              setAdditionalInstructions={setAdditionalInstructions}
-              guestRemaining={guestRemaining}
-              authUser={authUser}
-              history={history}
               verificationReport={verificationReport}
               isVerifying={isVerifying}
               isRepairing={isRepairing}
               onRepairJava={() => handleRepairJava()}
+              onApplyJavaEdit={applyJavaChangeWithUndo}
+              canUndoJava={Boolean(previousJavaCode)}
+              onUndoJava={handleUndoJava}
               programStdin={programStdin}
               setProgramStdin={setProgramStdin}
               multiTestCases={multiTestCases}
               setMultiTestCases={setMultiTestCases}
               onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin, multiTestCases)}
+              selectedPython={selectedPython}
+              onSelectPython={setSelectedPython}
+              settings={settings}
+              autoSaveStatus={autoSaveStatus}
+              history={history}
               onRestoreHistory={(entry) => {
-                setPythonCode(entry.pythonCode);
-                setJavaCode(entry.javaCode);
+                setConversionTitle(entry.label || 'Untitled conversion');
+                setPythonCode(entry.pythonCode || '');
+                setJavaCode(entry.javaCode || '');
                 if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
                 setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                setVerificationReport(null);
                 showToast('Restored from history');
               }}
+              onToggleAssistant={() => setAssistantOpen((v) => !v)}
+            />
+          )}
+
+          {activeView === 'files' && (
+            <FilesWorkspaceView
+              files={workspaceFiles}
+              activeFileId={activeFileId}
+              onSelectFile={handleSelectWorkspaceFile}
+              onCreateFile={handleCreateWorkspaceFile}
+              onDeleteFile={handleDeleteWorkspaceFile}
+              onOpenConverter={() => setActiveView('studio')}
+            />
+          )}
+
+          {activeView === 'history' && (
+            <HistoryWorkspaceView
+              authUser={authUser}
+              history={history}
+              onOpenStudio={() => setActiveView('studio')}
+              onRestoreHistory={(entry) => {
+                setConversionTitle(entry.label || 'Untitled conversion');
+                setPythonCode(entry.pythonCode || '');
+                setJavaCode(entry.javaCode || '');
+                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                showToast('Loaded saved conversion');
+              }}
+              onRenameHistory={handleRenameHistory}
+              onDeleteHistory={handleDeleteHistory}
+              onDuplicateHistory={handleDuplicateHistory}
+              onToggleFavorite={handleToggleFavorite}
+            />
+          )}
+
+          {activeView === 'tests' && (
+            <TestsWorkspaceView
+              javaCode={javaCode}
+              generatedUnitTest={generatedUnitTest || (javaCode.trim() ? generateJUnitTestSuite({ javaCode, verificationReport }) : '')}
+              verificationReport={verificationReport}
+              isGenerating={isGeneratingTests}
+              onGenerateTests={handleGenerateStandaloneTests}
+              onDownloadJUnit={() => {
+                const content = generatedUnitTest || generateJUnitTestSuite({ javaCode, verificationReport });
+                const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'SolutionTest.java';
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+              onBackToStudio={() => setActiveView('studio')}
             />
           )}
 
@@ -1454,79 +970,100 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               pythonCode={pythonCode}
               javaCode={javaCode}
               onEditPython={setPythonCode}
-              onRunConvert={handleTranspile}
+              onRunConvert={() => handleTranspile({ verify: true })}
               isTranspiling={isTranspiling}
             />
           )}
 
-          {activeView === 'playground' && (
-            <ApiPlayground
-              pgApiKey={pgApiKey}
-              setPgApiKey={setPgApiKey}
-              pgRequestBody={pgRequestBody}
-              setPgRequestBody={setPgRequestBody}
-              pgStatusBadge={pgStatusBadge}
-              pgResponseLatency={pgResponseLatency}
-              pgResponseHeaders={pgResponseHeaders}
-              pgResponseBody={pgResponseBody}
-              isPgLoading={isPgLoading}
-              onExecuteRequest={handleExecutePlayground}
-              onLoadScenario={handleLoadScenario}
-              generatedCurl={generatedCurl}
-              copyToClipboard={copyToClipboard}
-              copiedId={copiedId}
-            />
+          {activeView === 'analysis' && (
+            <AnalysisWorkspaceView pythonCode={pythonCode} javaCode={javaCode} />
           )}
 
-          {activeView === 'webhooks' && (
-            <WebhookInspector
-              webhookEndpointUrl={webhookEndpointUrl}
-              setWebhookEndpointUrl={setWebhookEndpointUrl}
-              webhookSigningSecret={webhookSigningSecret}
-              setWebhookSigningSecret={setWebhookSigningSecret}
-              webhookEventTopic={webhookEventTopic}
-              setWebhookEventTopic={setWebhookEventTopic}
-              webhookDeliveries={webhookDeliveries}
-              selectedWebhookIndex={selectedWebhookIndex}
-              setSelectedWebhookIndex={setSelectedWebhookIndex}
-              onTriggerManualWebhook={async () => {
-                const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31, null);
-                if (entry) {
-                  showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP ${entry.statusCode})`);
-                }
-              }}
-              onClearLogs={handleClearWebhookLogs}
-              onReplayWebhook={handleReplayWebhook}
-              copyToClipboard={copyToClipboard}
-              copiedId={copiedId}
-            />
+          {activeView === 'playground' && (
+            <div className="space-y-5">
+              <ApiPlayground
+                pgApiKey={pgApiKey}
+                setPgApiKey={setPgApiKey}
+                pgRequestBody={pgRequestBody}
+                setPgRequestBody={setPgRequestBody}
+                pgStatusBadge={pgStatusBadge}
+                pgResponseLatency={pgResponseLatency}
+                pgResponseHeaders={pgResponseHeaders}
+                pgResponseBody={pgResponseBody}
+                isPgLoading={isPgLoading}
+                onExecuteRequest={handleExecutePlayground}
+                onLoadScenario={handleLoadScenario}
+                generatedCurl={generatedCurl}
+                copyToClipboard={copyToClipboard}
+                copiedId={copiedId}
+              />
+              <WebhookInspector
+                webhookEndpointUrl={webhookEndpointUrl}
+                setWebhookEndpointUrl={setWebhookEndpointUrl}
+                webhookSigningSecret={webhookSigningSecret}
+                setWebhookSigningSecret={setWebhookSigningSecret}
+                webhookEventTopic={webhookEventTopic}
+                setWebhookEventTopic={setWebhookEventTopic}
+                webhookDeliveries={webhookDeliveries}
+                selectedWebhookIndex={selectedWebhookIndex}
+                setSelectedWebhookIndex={setSelectedWebhookIndex}
+                onTriggerManualWebhook={async () => {
+                  const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 25, null);
+                  if (entry) showToast(`Webhook dispatched (HTTP ${entry.statusCode})`);
+                }}
+                onClearLogs={() => {
+                  setWebhookDeliveries([]);
+                  setSelectedWebhookIndex(0);
+                }}
+                onReplayWebhook={(idx) => {
+                  const orig = webhookDeliveries[idx];
+                  if (orig) void recordWebhookDelivery(`${orig.eventType}.replay`, 200, pythonCode, javaCode, 20, null);
+                }}
+                copyToClipboard={copyToClipboard}
+                copiedId={copiedId}
+              />
+            </div>
           )}
 
           {activeView === 'docs' && (
-            <DocumentationView
-              onDownloadReadme={handleDownloadReadme}
-              copyToClipboard={copyToClipboard}
-              copiedId={copiedId}
+            <DocumentationView onDownloadReadme={handleDownloadReadme} copyToClipboard={copyToClipboard} copiedId={copiedId} />
+          )}
+
+          {activeView === 'settings' && (
+            <SettingsWorkspaceView
+              settings={settings}
+              onUpdateSetting={updateSetting}
+              onClearLocalData={handleClearLocalData}
             />
           )}
         </main>
+
+        {/* Collapsible Context-Aware AI Assistant Drawer */}
+        <AssistantPanel
+          open={assistantOpen}
+          onClose={() => setAssistantOpen(false)}
+          pythonCode={pythonCode}
+          javaCode={javaCode}
+          selectedPython={selectedPython}
+          javaVersion={javaTargetVersion}
+          compilerError={verificationReport?.java?.compilerError || ''}
+          verificationReport={verificationReport}
+          onApplyJavaEdit={applyJavaChangeWithUndo}
+          canUndoJava={Boolean(previousJavaCode)}
+          onUndoJava={handleUndoJava}
+        />
       </div>
 
-      {/* Google Sign-In Modal */}
-      <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        returnTo="/"
-        reason={authPromptReason}
-      />
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} commands={commands} />
+      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} returnTo="/" reason={authPromptReason} />
 
-      {/* Floating Toast Notification */}
+      {/* Minimal Status Toast */}
       <div
-        className={`fixed bottom-5 right-5 z-50 transition-all duration-200 pointer-events-none t-surface px-4 py-2.5 flex items-center gap-2.5 text-xs font-mono ${
-          toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-16 opacity-0'
+        className={`fixed bottom-4 right-4 z-50 transition-all duration-150 pointer-events-none t-surface px-3.5 py-2 flex items-center gap-2 text-xs font-mono ${
+          toast.visible ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0'
         }`}
       >
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
         <span>{toast.message}</span>
       </div>
     </div>

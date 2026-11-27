@@ -1,96 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Space+Grotesk:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
 @import "tailwindcss";
 
 /* ==========================================================================
-   MULTI-THEME DESIGN TOKEN SYSTEM
-   1. Cupertino Crisp Light (Default)
-   2. Swiss Neo-Brutalist
-   3. OLED Carbon (Zero-Blue Pitch Black)
+   J-FORGE DEVELOPER STUDIO DESIGN SYSTEM (Dark Default + Crisp Light Mode)
+   Clean IDE/Linear/JetBrains inspired workspace tokens
    ========================================================================== */
 :root,
-[data-theme="cupertino"] {
-  --bg-app: #FAFAFA;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #F4F4F5;
-  --bg-editor: #FFFFFF;
-  --bg-gutter: #FAFAFA;
-  --text-main: #09090B;
-  --text-secondary: #52525B;
-  --text-muted: #A1A1AA;
-  --border-color: #E4E4E7;
+[data-theme="dark"] {
+  --bg-app: #0C0D12;
+  --bg-surface: #13151C;
+  --bg-subtle: #1A1D26;
+  --bg-editor: #0E1016;
+  --bg-gutter: #101219;
+  --text-main: #F4F4F6;
+  --text-secondary: #A1A7B5;
+  --text-muted: #646B7C;
+  --border-color: #242836;
   --border-width: 1px;
-  --radius-card: 10px;
-  --radius-btn: 7px;
-  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-btn: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --primary-bg: #09090B;
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --primary-bg: #6E74FF;
   --primary-text: #FFFFFF;
-  --primary-hover: #27272A;
-  --accent-badge-bg: #F4F4F5;
-  --accent-badge-text: #18181B;
+  --primary-hover: #5C62EC;
+  --accent-badge-bg: #1E2235;
+  --accent-badge-text: #A5B4FC;
+  --code-py: #E4E7EF;
+  --code-java: #D4F5E9;
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+[data-theme="light"] {
+  --bg-app: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F1F5F9;
+  --bg-editor: #FFFFFF;
+  --bg-gutter: #F8FAFC;
+  --text-main: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border-color: #E2E8F0;
+  --border-width: 1px;
+  --radius-card: 8px;
+  --radius-btn: 6px;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-btn: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --primary-bg: #4F46E5;
+  --primary-text: #FFFFFF;
+  --primary-hover: #4338CA;
+  --accent-badge-bg: #EEF2FF;
+  --accent-badge-text: #4338CA;
   --code-py: #0F172A;
   --code-java: #065F46;
   --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-[data-theme="brutalist"] {
-  --bg-app: #F4F0EA;
-  --bg-surface: #FFFFFF;
-  --bg-subtle: #EAE4DC;
-  --bg-editor: #FFFEFC;
-  --bg-gutter: #EFECE6;
-  --text-main: #111111;
-  --text-secondary: #2E2E2E;
-  --text-muted: #666666;
-  --border-color: #111111;
-  --border-width: 2px;
-  --radius-card: 4px;
-  --radius-btn: 4px;
-  --shadow-card: 4px 4px 0px #111111;
-  --shadow-btn: 3px 3px 0px #111111;
-  --primary-bg: #FF4F00;
-  --primary-text: #FFFFFF;
-  --primary-hover: #E04400;
-  --accent-badge-bg: #FFE100;
-  --accent-badge-text: #111111;
-  --code-py: #111111;
-  --code-java: #0047AB;
-  --font-heading: 'Space Grotesk', sans-serif;
-}
-
-[data-theme="carbon"] {
-  --bg-app: #000000;
-  --bg-surface: #0A0A0A;
-  --bg-subtle: #141414;
-  --bg-editor: #050505;
-  --bg-gutter: #0A0A0A;
-  --text-main: #FAFAFA;
-  --text-secondary: #A3A3A3;
-  --text-muted: #525252;
-  --border-color: #262626;
-  --border-width: 1px;
-  --radius-card: 8px;
-  --radius-btn: 6px;
-  --shadow-card: none;
-  --shadow-btn: none;
-  --primary-bg: #10B981;
-  --primary-text: #000000;
-  --primary-hover: #34D399;
-  --accent-badge-bg: #171717;
-  --accent-badge-text: #10B981;
-  --code-py: #E5E5E5;
-  --code-java: #34D399;
-  --font-heading: 'Inter', sans-serif;
-}
-
-/* Base Body Styling */
 body {
   background-color: var(--bg-app);
   color: var(--text-main);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  transition: background-color 0.18s ease, color 0.18s ease;
+  transition: background-color 0.14s ease, color 0.14s ease;
   overflow-x: hidden;
+}
+
+.reduced-motion * {
+  transition: none !important;
+  animation: none !important;
 }
 
 h1, h2, h3, .heading-font {
@@ -101,13 +78,12 @@ h1, h2, h3, .heading-font {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Reusable Theme Surface Classes */
+/* Studio Surface & Borders */
 .t-surface {
   background-color: var(--bg-surface);
   border: var(--border-width) solid var(--border-color);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  transition: all 0.15s ease;
 }
 
 .t-subtle {
@@ -125,29 +101,25 @@ h1, h2, h3, .heading-font {
 .t-border-r {
   border-right: var(--border-width) solid var(--border-color);
 }
+.t-border-l {
+  border-left: var(--border-width) solid var(--border-color);
+}
 .t-border {
   border: var(--border-width) solid var(--border-color);
 }
 
-/* Primary & Secondary Buttons */
+/* Primary & Secondary Controls */
 .t-btn-primary {
   background-color: var(--primary-bg);
   color: var(--primary-text);
-  border: var(--border-width) solid var(--border-color);
+  border: 1px solid transparent;
   border-radius: var(--radius-btn);
   box-shadow: var(--shadow-btn);
   font-weight: 600;
-  transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.1s ease;
+  transition: background-color 0.12s ease, opacity 0.12s ease;
 }
 .t-btn-primary:hover {
   background-color: var(--primary-hover);
-}
-.t-btn-primary:active {
-  transform: translate(1px, 1px);
-}
-[data-theme="brutalist"] .t-btn-primary:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px #111111;
 }
 
 .t-btn-secondary {
@@ -157,36 +129,31 @@ h1, h2, h3, .heading-font {
   border-radius: var(--radius-btn);
   box-shadow: var(--shadow-btn);
   font-weight: 500;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 .t-btn-secondary:hover {
   background-color: var(--bg-subtle);
 }
-[data-theme="brutalist"] .t-btn-secondary:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0px #111111;
-}
 
-/* Navigation Rail Item */
+/* Sidebar Navigation */
 .nav-item {
   color: var(--text-secondary);
   border-radius: var(--radius-btn);
-  border: var(--border-width) solid transparent;
-  transition: all 0.12s ease;
+  border: 1px solid transparent;
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 .nav-item:hover {
   background-color: var(--bg-subtle);
   color: var(--text-main);
 }
 .nav-item.active {
-  background-color: var(--bg-surface);
+  background-color: var(--bg-subtle);
   color: var(--text-main);
   border-color: var(--border-color);
-  box-shadow: var(--shadow-btn);
   font-weight: 600;
 }
 
-/* Code Editor Styling */
+/* Editor Areas */
 .editor-area {
   background-color: var(--bg-editor);
   color: var(--code-py);
@@ -209,7 +176,6 @@ h1, h2, h3, .heading-font {
   line-height: 1.65;
 }
 
-/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

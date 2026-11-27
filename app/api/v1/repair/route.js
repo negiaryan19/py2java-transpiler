@@ -46,7 +46,7 @@ export async function POST(request) {
     stdin: typeof body?.stdin === 'string' ? body.stdin.slice(0, 4096) : '',
     targetVersion: safeVer,
     apiKey: serverApiKey,
-    maxIterations: 2,
+    maxIterations: 3,
   });
 
   return Response.json(result, { status: 200 });

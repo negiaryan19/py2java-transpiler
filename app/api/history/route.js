@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { SESSION_COOKIE_NAME, verifySessionToken } from '../../../lib/session.js';
-import { isDatabaseConfigured, listUserHistory, saveUserHistory } from '../../../lib/db.js';
+import { isDatabaseConfigured, listUserHistory, saveUserHistory, renameUserHistory, deleteUserHistory } from '../../../lib/db.js';
 import { MAX_CODE_CHARS } from '../../../lib/security.js';
 
 async function getAuthenticatedUser() {
@@ -68,5 +68,63 @@ export async function POST(request) {
     return Response.json({ ok: true, id: row.id }, { status: 200 });
   } catch {
     return Response.json({ ok: false, error: 'Failed to save history.' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request) {
+  const session = await getAuthenticatedUser();
+  if (!session) {
+    return Response.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+  }
+  if (!(await isDatabaseConfigured())) {
+    return Response.json({ ok: false, error: 'Database not configured.' }, { status: 503 });
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ ok: false, error: 'Invalid JSON.' }, { status: 400 });
+  }
+  const { id, label } = body || {};
+  if (!id || typeof label !== 'string' || !label.trim()) {
+    return Response.json({ ok: false, error: 'id and label are required.' }, { status: 400 });
+  }
+  try {
+    const updated = await renameUserHistory({ id, userId: session.sub, label });
+    if (!updated) {
+      return Response.json({ ok: false, error: 'History item not found.' }, { status: 404 });
+    }
+    return Response.json({ ok: true, item: updated }, { status: 200 });
+  } catch {
+    return Response.json({ ok: false, error: 'Failed to rename history item.' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  const session = await getAuthenticatedUser();
+  if (!session) {
+    return Response.json({ ok: false, error: 'Authentication required.' }, { status: 401 });
+  }
+  if (!(await isDatabaseConfigured())) {
+    return Response.json({ ok: false, error: 'Database not configured.' }, { status: 503 });
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ ok: false, error: 'Invalid JSON.' }, { status: 400 });
+  }
+  const id = body?.id;
+  if (!id) {
+    return Response.json({ ok: false, error: 'id is required.' }, { status: 400 });
+  }
+  try {
+    const deleted = await deleteUserHistory({ id, userId: session.sub });
+    if (!deleted) {
+      return Response.json({ ok: false, error: 'History item not found.' }, { status: 404 });
+    }
+    return Response.json({ ok: true }, { status: 200 });
+  } catch {
+    return Response.json({ ok: false, error: 'Failed to delete history item.' }, { status: 500 });
   }
 }

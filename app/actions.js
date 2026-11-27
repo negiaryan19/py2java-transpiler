@@ -154,6 +154,9 @@ export async function studioTranspileAction({
   clientGeminiKey = '',
   bypassCache = false,
   additionalInstructions = '',
+  conversionMode = 'strict',
+  conversionConfig = {},
+  isSelection = false,
 } = {}) {
   const startTime = performance.now();
   const authCtx = await requireAuthenticatedActionSession();
@@ -219,12 +222,22 @@ export async function studioTranspileAction({
   const safeInstructions = typeof additionalInstructions === 'string'
     ? additionalInstructions.trim().slice(0, 300)
     : '';
+  const safeMode = typeof conversionMode === 'string' ? conversionMode.trim().slice(0, 24) : 'strict';
+  const cfgTag = JSON.stringify({
+    m: safeMode,
+    p: conversionConfig?.packageName || 'com.jforge.ciap',
+    c: conversionConfig?.className || 'Solution',
+    ic: conversionConfig?.includeComments !== false,
+    jd: Boolean(conversionConfig?.includeJavadoc),
+    im: conversionConfig?.includeMain !== false,
+    sel: Boolean(isSelection),
+  });
   const effectivePython = safeInstructions
     ? `# Additional Instructions: ${safeInstructions}\n${pythonCode}`
     : pythonCode;
   // Ignore cache bypass for anonymous callers using server GEMINI_API_KEY
   const effectiveBypassCache = Boolean(bypassCache && safeOverrideKey);
-  const cacheKey = astCache.computeKey(effectivePython, safeJavaVersion);
+  const cacheKey = astCache.computeKey(`${cfgTag}\n${effectivePython}`, safeJavaVersion);
   const cachedHit = !effectiveBypassCache ? astCache.get(cacheKey) : null;
 
   try {
@@ -250,7 +263,12 @@ export async function studioTranspileAction({
         effectivePython,
         `Java ${safeJavaVersion} LTS`,
         safeOverrideKey,
-        { skipServerKey }
+        {
+          skipServerKey,
+          conversionMode: safeMode,
+          conversionConfig,
+          isSelection: Boolean(isSelection),
+        }
       );
 
       const healed = await healJavaCode({

@@ -1,19 +1,19 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'J-Forge // Python to Java Transpiler & API Gateway (BTIN337 CIA-P)',
-  description: 'Production-ready Python 3.11 to Java 17 LTS AST Transpiler, REST API Gateway, and Webhook Dispatcher built for Next.js App Router and Vercel.',
+  title: 'J-Forge Studio // Python to Java Conversion & Verification IDE',
+  description: 'Intelligent Python-to-Java Conversion, Static Compatibility Scanning, Real OpenJDK/CPython Verification, and Developer Workspace.',
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#09090B',
+  themeColor: '#0C0D12',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="cupertino">
+    <html lang="en" data-theme="dark">
       <body className="min-h-screen antialiased">
         {children}
       </body>

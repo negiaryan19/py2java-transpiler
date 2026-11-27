@@ -32,7 +32,7 @@ export default function LoginPage() {
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [resetSent, setResetSent] = useState(false);
-  const [theme, setTheme] = useState('cupertino');
+  const [theme, setTheme] = useState('dark');
 
   const handleForgotSubmit = async (e) => {
     e.preventDefault();
@@ -81,7 +81,7 @@ export default function LoginPage() {
         if (!active) return;
         try {
           const savedTheme = localStorage.getItem('jforge_theme');
-          if (savedTheme && ['cupertino', 'brutalist', 'carbon'].includes(savedTheme)) {
+          if (savedTheme && ['dark', 'light'].includes(savedTheme)) {
             setTheme(savedTheme);
           }
         } catch {
