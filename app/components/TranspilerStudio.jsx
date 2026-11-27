@@ -28,6 +28,9 @@ import {
   MessageSquarePlus,
   Play,
   Link2,
+  CheckCircle2,
+  XCircle,
+  Clock,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { studioExplainAction } from '../actions.js';
@@ -63,6 +66,11 @@ export default function TranspilerStudio({
   authUser = null,
   history = [],
   onRestoreHistory = () => {},
+  verificationReport = null,
+  isVerifying = false,
+  programStdin = '',
+  setProgramStdin = () => {},
+  onVerifyOnly = () => {},
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -112,7 +120,7 @@ export default function TranspilerStudio({
       const res = await fetch('/api/v1/run-java', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ java_code: javaCode }),
+        body: JSON.stringify({ java_code: javaCode, stdin: programStdin }),
       });
       const data = await res.json();
       setJavaRunResult(data);
@@ -593,7 +601,7 @@ export default function TranspilerStudio({
             ) : (
               <Zap className="w-3.5 h-3.5" />
             )}
-            <span>Transpile to Java</span>
+            <span>Convert &amp; Verify</span>
             <kbd className="text-[10px] opacity-75 px-1 rounded border border-current hidden sm:inline">⌘↵</kbd>
           </button>
         </div>
@@ -934,18 +942,158 @@ export default function TranspilerStudio({
         </div>
       </div>
 
-      {/* Optional Additional Instructions */}
-      <div className="t-surface px-3.5 py-2 flex items-center gap-2.5 text-xs">
-        <MessageSquarePlus className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-        <input
-          type="text"
-          value={additionalInstructions}
-          onChange={(e) => setAdditionalInstructions(e.target.value)}
-          maxLength={300}
-          placeholder="Additional instructions (optional): e.g., Use Java 17 records, add comments, use Streams..."
-          className="flex-1 bg-transparent font-mono text-xs focus:outline-none"
-          style={{ color: 'var(--text-main)' }}
-        />
+      {/* Optional Instructions & Program Stdin */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 t-surface px-3.5 py-2 flex items-center gap-2.5 text-xs">
+          <MessageSquarePlus className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+          <input
+            type="text"
+            value={additionalInstructions}
+            onChange={(e) => setAdditionalInstructions(e.target.value)}
+            maxLength={300}
+            placeholder="Additional instructions (optional): e.g., Use Java 17 records, add comments..."
+            className="flex-1 bg-transparent font-mono text-xs focus:outline-none"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+        <div className="t-surface px-3.5 py-2 flex items-center gap-2 text-xs">
+          <Terminal className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          <input
+            type="text"
+            value={programStdin}
+            onChange={(e) => setProgramStdin(e.target.value)}
+            maxLength={1000}
+            placeholder="Program input (stdin) for input()..."
+            className="flex-1 bg-transparent font-mono text-xs focus:outline-none"
+            style={{ color: 'var(--text-main)' }}
+          />
+        </div>
+      </div>
+
+      {/* Real Verification Results Card (Honest, Evidence-Based) */}
+      <div className="t-surface p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-500" />
+            <span className="font-bold text-xs sm:text-sm heading-font">Verification Results</span>
+            {isVerifying ? (
+              <span className="text-[11px] font-mono px-2 py-0.5 t-subtle flex items-center gap-1.5 text-sky-600">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Compiling &amp; running CPython 3.13 + OpenJDK 21...</span>
+              </span>
+            ) : verificationReport ? (
+              <span
+                className={`text-[11px] font-mono px-2 py-0.5 rounded font-semibold ${
+                  verificationReport.status === 'behavioral_match'
+                    ? 'bg-emerald-500/15 text-emerald-600'
+                    : verificationReport.status === 'compilation_failed' || verificationReport.status === 'execution_failed'
+                    ? 'bg-rose-500/15 text-rose-600'
+                    : 'bg-amber-500/15 text-amber-600'
+                }`}
+              >
+                {verificationReport.status === 'behavioral_match'
+                  ? 'Verified Match (1/1)'
+                  : verificationReport.status === 'behavioral_mismatch'
+                  ? 'Output Mismatch (0/1)'
+                  : verificationReport.status === 'compilation_failed'
+                  ? 'Compilation Failed'
+                  : verificationReport.status === 'execution_failed'
+                  ? 'Runtime Error'
+                  : 'Inconclusive'}
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono px-2 py-0.5 t-subtle" style={{ color: 'var(--text-secondary)' }}>
+                Not verified yet
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={onVerifyOnly}
+            disabled={isVerifying || !pythonCode?.trim() || !javaCode?.trim()}
+            className="t-btn-secondary px-3 py-1 text-[11px] font-mono flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3 h-3 ${isVerifying ? 'animate-spin' : ''}`} />
+            <span>Re-Verify Live</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs font-mono">
+          {/* 1. Compilation Status */}
+          <div className="p-2.5 t-subtle space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold">
+              {isVerifying ? (
+                <Clock className="w-3.5 h-3.5 text-sky-500" />
+              ) : verificationReport?.compilationPassed ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              ) : verificationReport ? (
+                <XCircle className="w-3.5 h-3.5 text-rose-500" />
+              ) : (
+                <Clock className="w-3.5 h-3.5 opacity-60" />
+              )}
+              <span>Java Compilation</span>
+            </div>
+            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              {isVerifying
+                ? 'Running javac (OpenJDK 21)...'
+                : verificationReport?.compilationPassed
+                ? `Passed (${verificationReport.java?.executionTimeMs || 0} ms)`
+                : verificationReport?.java?.compilerError
+                ? verificationReport.java.compilerError.split('\n')[0]
+                : verificationReport
+                ? 'Did not pass'
+                : 'Click Convert & Verify'}
+            </p>
+          </div>
+
+          {/* 2. Real Python Output */}
+          <div className="p-2.5 t-subtle space-y-1">
+            <div className="font-semibold">Python Output (CPython 3.13)</div>
+            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              {isVerifying
+                ? 'Executing...'
+                : verificationReport?.python
+                ? verificationReport.python.ok
+                  ? verificationReport.python.stdout || '(Empty output)'
+                  : verificationReport.python.stderr || `Exit ${verificationReport.python.exitCode}`
+                : 'Click Convert & Verify'}
+            </p>
+          </div>
+
+          {/* 3. Real Java Output */}
+          <div className="p-2.5 t-subtle space-y-1">
+            <div className="font-semibold">Java Output (OpenJDK 21)</div>
+            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              {isVerifying
+                ? 'Executing...'
+                : verificationReport?.java
+                ? verificationReport.java.ok
+                  ? verificationReport.java.stdout || '(Empty output)'
+                  : verificationReport.java.compilerError || verificationReport.java.stderr || `Exit ${verificationReport.java.exitCode}`
+                : 'Click Convert & Verify'}
+            </p>
+          </div>
+
+          {/* 4. Behavioral Equivalence Summary */}
+          <div className="p-2.5 t-subtle space-y-1">
+            <div className="font-semibold">Behavioral Check</div>
+            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              {isVerifying
+                ? 'Comparing outputs...'
+                : verificationReport
+                ? `${verificationReport.passedCases}/${verificationReport.totalCases} passed • ${
+                    verificationReport.outputMatch ? 'Outputs match' : 'Not matched'
+                  }`
+                : 'Awaiting live run'}
+            </p>
+          </div>
+        </div>
+
+        {verificationReport?.java?.compilerError && (
+          <pre className="p-2.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-600 text-[11px] font-mono whitespace-pre-wrap overflow-x-auto">
+            {verificationReport.java.compilerError}
+          </pre>
+        )}
       </div>
 
       {/* Program Runtime Output & Compiler Diagnostics Drawer */}
@@ -1061,12 +1209,16 @@ export default function TranspilerStudio({
             style={{ backgroundColor: 'var(--bg-editor)', minHeight: '90px', maxHeight: '180px' }}
           >
             <pre className="whitespace-pre-wrap selection:bg-emerald-500 selection:text-black">
-              {executionStdout || '[No runtime output yet. Click "Transpile to Java" to run.]'}
+              {executionStdout || '[No output yet. Click "Convert & Verify" to run.]'}
             </pre>
-            <div className="mt-2 pt-2 border-t border-dashed border-black/10 dark:border-white/10 text-[11px] text-emerald-600 font-medium flex items-center gap-1.5">
-              <span>✓ Process finished with exit code 0</span>
-              <span className="opacity-40">•</span>
-              <span className="opacity-75">All assertions verified</span>
+            <div className="mt-2 pt-2 border-t border-dashed border-black/10 dark:border-white/10 text-[11px] font-medium flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              {verificationReport?.python?.ok ? (
+                <span className="text-emerald-600">
+                  ✓ Real CPython 3.13 exited with code {verificationReport.python.exitCode} ({verificationReport.python.executionTimeMs} ms)
+                </span>
+              ) : (
+                <span>Quick browser preview (real execution runs via CPython 3.13 &amp; OpenJDK 21 in Verification Results above)</span>
+              )}
             </div>
           </div>
         ) : consoleTab === 'javaRun' ? (

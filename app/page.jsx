@@ -595,6 +595,9 @@ export default function JForgeOrchestrator() {
   const [additionalInstructions, setAdditionalInstructions] = useState('');
   const [guestRemaining, setGuestRemaining] = useState(3);
   const [history, setHistory] = useState([]);
+  const [verificationReport, setVerificationReport] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [programStdin, setProgramStdin] = useState('');
 
   // Global Toast & Copy Feedback
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -810,6 +813,41 @@ export default function JForgeOrchestrator() {
     return entry;
   };
 
+  const runVerification = async (pyCode, jCode, stdinVal = '') => {
+    if (!pyCode?.trim() || !jCode?.trim()) return null;
+    setIsVerifying(true);
+    try {
+      const res = await fetch('/api/v1/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          python_code: pyCode,
+          java_code: jCode,
+          stdin: stdinVal,
+        }),
+      });
+      const data = await res.json();
+      setVerificationReport(data);
+      if (data?.python?.ok && typeof data.python.stdout === 'string') {
+        setExecutionStdout(data.python.stdout || '(No output)');
+      }
+      return data;
+    } catch {
+      const fallbackErr = {
+        status: 'inconclusive',
+        compilationPassed: false,
+        outputMatch: false,
+        passedCases: 0,
+        totalCases: 1,
+        summary: 'Unable to reach real execution sandbox.',
+      };
+      setVerificationReport(fallbackErr);
+      return fallbackErr;
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // Primary Transpiler Handler (Uses secure Server Action by default, or user-supplied Gateway Key)
   const handleTranspile = async () => {
     const trimmed = pythonCode.trim();
@@ -893,8 +931,10 @@ export default function JForgeOrchestrator() {
       const elapsedMs = Math.max(18, Math.round(performance.now() - startTime));
       setJavaCode(javaResult);
       setExecutionStdout(computeProgramStdout(pythonCode));
+      setVerificationReport(null);
       setLatency(elapsedMs);
       setCompilerSummary(summaryNote);
+      void runVerification(pythonCode, javaResult, programStdin);
 
       const newEntry = {
         id: `hist_${Date.now()}`,
@@ -1304,6 +1344,11 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               guestRemaining={guestRemaining}
               authUser={authUser}
               history={history}
+              verificationReport={verificationReport}
+              isVerifying={isVerifying}
+              programStdin={programStdin}
+              setProgramStdin={setProgramStdin}
+              onVerifyOnly={() => runVerification(pythonCode, javaCode, programStdin)}
               onRestoreHistory={(entry) => {
                 setPythonCode(entry.pythonCode);
                 setJavaCode(entry.javaCode);

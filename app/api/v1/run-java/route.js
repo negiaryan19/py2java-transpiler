@@ -26,11 +26,12 @@ export async function POST(request) {
   }
 
   const javaCode = body?.java_code;
+  const stdin = typeof body?.stdin === 'string' ? body.stdin.slice(0, 4096) : '';
   const validation = validateCodePayload(javaCode, 'java_code', MAX_CODE_CHARS);
   if (!validation.valid) {
     return Response.json({ ok: false, error: validation.error }, { status: validation.status });
   }
 
-  const result = await runJavaInSandbox(javaCode);
+  const result = await runJavaInSandbox(javaCode, { stdin });
   return Response.json(result, { status: 200 });
 }
