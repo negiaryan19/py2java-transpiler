@@ -27,7 +27,6 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [returnTo, setReturnTo] = useState('/');
-  const [oauthConfigured, setOauthConfigured] = useState(true);
   const [dbConfigured, setDbConfigured] = useState(true);
 
   // Check session + read safe returnTo on mount
@@ -45,7 +44,6 @@ export default function LoginPage() {
         if (authErr) {
           setError(`Sign-in did not complete (${authErr}).`);
         }
-        setOauthConfigured(s?.oauthConfigured !== false);
         setDbConfigured(s?.dbConfigured !== false);
         if (s?.authenticated) {
           router.replace(nextPath);
@@ -310,34 +308,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {oauthConfigured && (
-          <>
-            {/* Divider */}
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-slate-800" />
-              <span className="text-[11px] font-mono text-slate-500">or</span>
-              <div className="flex-1 h-px bg-slate-800" />
-            </div>
-
-            {/* Google Sign-In (Optional) */}
-            <a
-              href={`/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`}
-              className="w-full py-2.5 rounded-lg border border-slate-700 hover:bg-slate-800 text-slate-200 font-mono text-xs flex items-center justify-center gap-2.5 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="currentColor"
-                  d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27c3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10c5.35 0 9.25-3.67 9.25-9.09c0-1.15-.15-1.81-.15-1.81Z"
-                />
-              </svg>
-              <span>Continue with Google (Gmail)</span>
-            </a>
-          </>
-        )}
-
         {/* Footer */}
         <p className="text-center text-[11px] text-slate-500 font-mono">
-          J-Forge • BTIN337 CIA-P (20M) • Secure PBKDF2-SHA512 Password Hashing
+          J-Forge • Secure Email Authentication
         </p>
       </div>
     </main>

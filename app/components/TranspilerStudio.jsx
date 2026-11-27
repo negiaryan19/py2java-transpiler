@@ -21,6 +21,11 @@ import {
   Cpu,
   ShieldCheck,
   RefreshCw,
+  Upload,
+  Maximize2,
+  Minimize2,
+  History,
+  MessageSquarePlus,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { studioExplainAction } from '../actions.js';
@@ -50,11 +55,33 @@ export default function TranspilerStudio({
   selfHealing = null,
   gatewayApiKey = '',
   onRequireAuth = () => {},
+  additionalInstructions = '',
+  setAdditionalInstructions = () => {},
+  guestRemaining = 3,
+  authUser = null,
+  history = [],
+  onRestoreHistory = () => {},
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
   const javaTextareaRef = useRef(null);
   const javaGutterRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (typeof ev.target?.result === 'string') {
+        setPythonCode(ev.target.result);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // Synchronized line gutter scroll handlers
   const handlePyScroll = (e) => {
@@ -423,6 +450,56 @@ export default function TranspilerStudio({
             <span className="hidden sm:inline">{bypassCache ? 'Bypass Cache: ON' : 'Cache: Active'}</span>
           </button>
 
+          {!authUser && (
+            <a
+              href="/login"
+              className="px-2.5 py-1.5 text-xs font-mono t-subtle flex items-center gap-1.5 hover:opacity-80"
+              title="Sign in for unlimited conversions"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>{guestRemaining} free uses</span>
+            </a>
+          )}
+
+          {history.length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setHistoryOpen((v) => !v)}
+                className="t-btn-secondary px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+                title="Recent conversion history"
+              >
+                <History className="w-3.5 h-3.5 text-sky-500" />
+                <span className="hidden sm:inline">History</span>
+              </button>
+              {historyOpen && (
+                <div className="absolute right-0 mt-1.5 w-72 t-surface shadow-xl z-40 p-2 space-y-1">
+                  <p className="text-[10px] font-mono uppercase px-2 py-1 opacity-60">Recent Conversions</p>
+                  {history.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        onRestoreHistory(item);
+                        setHistoryOpen(false);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded text-xs font-mono hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-between gap-2 cursor-pointer"
+                    >
+                      <span className="truncate">{item.label}</span>
+                      <span className="text-[10px] opacity-60 shrink-0">{item.time}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsFullscreen((v) => !v)}
+            className="t-btn-secondary px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Editors'}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
+
           <button
             onClick={() => setShortcutsModalOpen(true)}
             className="t-btn-secondary px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
@@ -498,9 +575,16 @@ export default function TranspilerStudio({
       )}
 
       {/* Dual macOS Window Chrome Code Editors */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div
+        className={
+          isFullscreen
+            ? 'fixed inset-3 z-50 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 rounded-lg shadow-2xl'
+            : 'grid grid-cols-1 lg:grid-cols-2 gap-4'
+        }
+        style={isFullscreen ? { backgroundColor: 'var(--bg-app)' } : undefined}
+      >
         {/* LEFT EDITOR: PYTHON 3.11 SOURCE */}
-        <div className="t-surface overflow-hidden flex flex-col h-[500px]">
+        <div className={`t-surface overflow-hidden flex flex-col ${isFullscreen ? 'h-full' : 'h-[500px]'}`}>
           {/* macOS Titlebar */}
           <div
             className="px-3.5 py-2.5 t-border-b flex items-center justify-between"
@@ -520,6 +604,21 @@ export default function TranspilerStudio({
               <span className="text-[11px]">
                 {pyLines.length} lines • {pythonCode.length} chars
               </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".py,.txt"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
+                title="Upload a .py file"
+              >
+                <Upload className="w-2.5 h-2.5" />
+                <span>Upload</span>
+              </button>
               <button
                 onClick={handleAutoFormat}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
@@ -596,7 +695,7 @@ export default function TranspilerStudio({
         </div>
 
         {/* RIGHT EDITOR: JAVA TARGET OUTPUT */}
-        <div className="t-surface overflow-hidden flex flex-col h-[500px] relative">
+        <div className={`t-surface overflow-hidden flex flex-col relative ${isFullscreen ? 'h-full' : 'h-[500px]'}`}>
           {/* Loading Veil */}
           {isTranspiling && (
             <div className="absolute inset-0 z-20 backdrop-blur-xs bg-black/20 flex flex-col items-center justify-center gap-2">
@@ -722,6 +821,20 @@ export default function TranspilerStudio({
             />
           </div>
         </div>
+      </div>
+
+      {/* Optional Additional Instructions */}
+      <div className="t-surface px-3.5 py-2 flex items-center gap-2.5 text-xs">
+        <MessageSquarePlus className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+        <input
+          type="text"
+          value={additionalInstructions}
+          onChange={(e) => setAdditionalInstructions(e.target.value)}
+          maxLength={300}
+          placeholder="Additional instructions (optional): e.g., Use Java 17 records, add comments, use Streams..."
+          className="flex-1 bg-transparent font-mono text-xs focus:outline-none"
+          style={{ color: 'var(--text-main)' }}
+        />
       </div>
 
       {/* Program Runtime Output & Compiler Diagnostics Drawer */}

@@ -588,10 +588,12 @@ export default function JForgeOrchestrator() {
 
   // Auth & Engine State (uses server-configured GEMINI_API_KEY automatically)
   const [authUser, setAuthUser] = useState(null);
-  const [oauthConfigured, setOauthConfigured] = useState(true);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authPromptReason, setAuthPromptReason] = useState('');
   const [activeEngine, setActiveEngine] = useState('Gemini Live');
+  const [additionalInstructions, setAdditionalInstructions] = useState('');
+  const [guestRemaining, setGuestRemaining] = useState(3);
+  const [history, setHistory] = useState([]);
 
   // Global Toast & Copy Feedback
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -693,9 +695,14 @@ export default function JForgeOrchestrator() {
       .then((res) => res.json())
       .then((sess) => {
         if (!active) return;
-        setOauthConfigured(Boolean(sess?.oauthConfigured));
         const user = sess?.authenticated ? sess.user : null;
         setAuthUser(user);
+        try {
+          const saved = JSON.parse(localStorage.getItem('jforge_history') || '[]');
+          if (Array.isArray(saved)) setHistory(saved.slice(0, 5));
+        } catch {
+          // Ignore storage errors
+        }
 
         if (authErr) {
           setAuthPromptReason(`Google sign-in did not complete (${authErr}).`);
@@ -816,7 +823,12 @@ export default function JForgeOrchestrator() {
           javaVersion: targetJava,
           webhookUrl: webhookEndpointUrl,
           bypassCache,
+          additionalInstructions,
         });
+
+        if (typeof actionRes?.guestRemaining === 'number') {
+          setGuestRemaining(actionRes.guestRemaining);
+        }
 
         if (actionRes?.ok) {
           const returnedJava = actionRes?.data?.java_code;
@@ -870,6 +882,24 @@ export default function JForgeOrchestrator() {
       setExecutionStdout(computeProgramStdout(pythonCode));
       setLatency(elapsedMs);
       setCompilerSummary(summaryNote);
+
+      const newEntry = {
+        id: `hist_${Date.now()}`,
+        label: pythonCode.split('\n').find((l) => l.trim())?.trim().slice(0, 36) || 'Python Snippet',
+        pythonCode,
+        javaCode: javaResult,
+        javaTargetVersion,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setHistory((prev) => {
+        const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 5);
+        try {
+          localStorage.setItem('jforge_history', JSON.stringify(next));
+        } catch {
+          // Ignore storage quota errors
+        }
+        return next;
+      });
 
       await recordWebhookDelivery(
         'code.conversion.completed',
@@ -1237,6 +1267,18 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               selfHealing={selfHealing}
               gatewayApiKey=""
               onRequireAuth={promptSignIn}
+              additionalInstructions={additionalInstructions}
+              setAdditionalInstructions={setAdditionalInstructions}
+              guestRemaining={guestRemaining}
+              authUser={authUser}
+              history={history}
+              onRestoreHistory={(entry) => {
+                setPythonCode(entry.pythonCode);
+                setJavaCode(entry.javaCode);
+                if (entry.javaTargetVersion) setJavaTargetVersion(entry.javaTargetVersion);
+                setExecutionStdout(computeProgramStdout(entry.pythonCode));
+                showToast('Restored from history');
+              }}
             />
           )}
 
@@ -1297,7 +1339,6 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        oauthConfigured={oauthConfigured}
         returnTo="/"
         reason={authPromptReason}
       />

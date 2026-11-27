@@ -129,18 +129,54 @@ async function requireAuthenticatedActionSession() {
  * self-healing, and SSRF-safe webhook delivery strictly on the server without
  * exposing APP_API_KEY or GEMINI_API_KEY to the browser bundle.
  */
+const MAX_GUEST_FREE_CONVERSIONS = 3;
+
+function consumeGuestTrialQuota(clientId) {
+  const now = Date.now();
+  const store = globalThis.__jforgeGuestTrials || new Map();
+  globalThis.__jforgeGuestTrials = store;
+  const entry = store.get(clientId);
+  if (!entry || now - entry.windowStart >= 24 * 60 * 60 * 1000) {
+    store.set(clientId, { windowStart: now, count: 1 });
+    return { allowed: true, remaining: MAX_GUEST_FREE_CONVERSIONS - 1 };
+  }
+  if (entry.count >= MAX_GUEST_FREE_CONVERSIONS) {
+    return { allowed: false, remaining: 0 };
+  }
+  entry.count += 1;
+  return { allowed: true, remaining: MAX_GUEST_FREE_CONVERSIONS - entry.count };
+}
+
 export async function studioTranspileAction({
   pythonCode,
   javaVersion = '17',
   webhookUrl = '',
   clientGeminiKey = '',
   bypassCache = false,
+  additionalInstructions = '',
 } = {}) {
   const startTime = performance.now();
-  const { origin, session, userBucketId, authError } = await requireAuthenticatedActionSession();
-  if (authError) {
-    metrics.incTranspile(authError.status);
-    return authError;
+  const authCtx = await requireAuthenticatedActionSession();
+  let { origin, session, userBucketId } = authCtx;
+  let guestRemaining = null;
+
+  if (authCtx.authError) {
+    if (authCtx.authError.status === 403) {
+      metrics.incTranspile(403);
+      return authCtx.authError;
+    }
+    const trial = consumeGuestTrialQuota(authCtx.clientId);
+    if (!trial.allowed) {
+      metrics.incTranspile(401);
+      return {
+        ok: false,
+        status: 401,
+        code: 'AUTH_REQUIRED',
+        error: 'You have used your 3 free guest conversions. Sign in or create a free account to continue.',
+      };
+    }
+    userBucketId = `guest:${authCtx.clientId}`;
+    guestRemaining = trial.remaining;
   }
 
   const rateLimit = checkRateLimit(null, {
@@ -155,7 +191,7 @@ export async function studioTranspileAction({
     return {
       ok: false,
       status: 429,
-      error: `Rate limit exceeded for ${session.email} (15 requests/minute). Please retry shortly.`,
+      error: `Rate limit exceeded${session?.email ? ` for ${session.email}` : ''} (15 requests/minute). Please retry shortly.`,
     };
   }
 
@@ -180,9 +216,15 @@ export async function studioTranspileAction({
   }
   const safeJavaVersion = versionCheck.value;
   const safeOverrideKey = sanitizeClientGeminiKey(clientGeminiKey);
+  const safeInstructions = typeof additionalInstructions === 'string'
+    ? additionalInstructions.trim().slice(0, 300)
+    : '';
+  const effectivePython = safeInstructions
+    ? `# Additional Instructions: ${safeInstructions}\n${pythonCode}`
+    : pythonCode;
   // Ignore cache bypass for anonymous callers using server GEMINI_API_KEY
   const effectiveBypassCache = Boolean(bypassCache && safeOverrideKey);
-  const cacheKey = astCache.computeKey(pythonCode, safeJavaVersion);
+  const cacheKey = astCache.computeKey(effectivePython, safeJavaVersion);
   const cachedHit = !effectiveBypassCache ? astCache.get(cacheKey) : null;
 
   try {
@@ -201,11 +243,11 @@ export async function studioTranspileAction({
       metrics.incCacheHit();
     } else {
       metrics.incCacheMiss();
-      const userQuotaOk = safeOverrideKey ? true : consumeUserGeminiQuota(session.sub).allowed;
+      const userQuotaOk = safeOverrideKey ? true : consumeUserGeminiQuota(session?.sub || userBucketId).allowed;
       const skipServerKey = !safeOverrideKey && (!userQuotaOk || !consumeServerGeminiUiBudget());
 
       const transpiled = await transpilePythonToJava(
-        pythonCode,
+        effectivePython,
         `Java ${safeJavaVersion} LTS`,
         safeOverrideKey,
         { skipServerKey }
@@ -284,6 +326,7 @@ export async function studioTranspileAction({
       status: 200,
       engine,
       summary,
+      guestRemaining,
       cache: {
         hit: isCacheHit,
         key: cacheKey,
