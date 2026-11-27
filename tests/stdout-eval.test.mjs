@@ -29,3 +29,19 @@ test('Stdout Evaluator: supports for-range loops and if/else blocks', () => {
   ].join('\n');
   assert.deepEqual(evaluatePythonStdout(code), ['1 odd', '2 even', '3 odd']);
 });
+
+test('Stdout Evaluator: handles input(), break, and for-else without throwing', () => {
+  const code = [
+    'num = int(input("Enter a number: "))',
+    'if num < 2:',
+    '    print("Not a prime number")',
+    'else:',
+    '    for i in range(2, int(num ** 0.5) + 1):',
+    '        if num % i == 0:',
+    '            print("Not a prime number")',
+    '            break',
+    '    else:',
+    '        print("Prime number")',
+  ].join('\n');
+  assert.deepEqual(evaluatePythonStdout(code), ['Prime number']);
+});
