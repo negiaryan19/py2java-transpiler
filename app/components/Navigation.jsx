@@ -13,6 +13,8 @@ import {
   Flame,
   Moon,
   Sparkles,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 
 export default function Navigation({
@@ -26,6 +28,9 @@ export default function Navigation({
   latency,
   webhookCount,
   showToast,
+  authUser = null,
+  onOpenAuthModal = () => {},
+  onLogout = () => {},
 }) {
   return (
     <>
@@ -125,11 +130,41 @@ export default function Navigation({
 
           <button
             onClick={() => setActiveView('playground')}
-            className="t-btn-primary px-3 py-1.5 text-xs font-mono hidden sm:flex items-center gap-1.5 cursor-pointer"
+            className="t-btn-primary px-3 py-1.5 text-xs font-mono hidden md:flex items-center gap-1.5 cursor-pointer"
           >
             <Plug className="w-3 h-3" />
             <span>POST /api/v1/convert</span>
           </button>
+
+          {authUser ? (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="t-subtle px-2.5 py-1.5 text-xs font-mono hidden sm:flex items-center gap-1.5"
+                title={authUser.email}
+              >
+                <span className="w-4 h-4 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  {(authUser.name || authUser.email || 'U').charAt(0).toUpperCase()}
+                </span>
+                <span className="max-w-[110px] truncate">{authUser.name || authUser.email}</span>
+              </span>
+              <button
+                onClick={onLogout}
+                className="t-btn-secondary px-2.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+                title={`Sign out (${authUser.email})`}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              className="t-btn-primary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
       </header>
     </>

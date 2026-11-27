@@ -1,6 +1,6 @@
 'use server';
 
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { transpilePythonToJava } from '../lib/gemini.js';
 import { dispatchWebhook, computeWebhookSignature } from '../lib/webhook.js';
 import { checkRateLimit } from '../lib/rate-limit.js';
@@ -10,6 +10,11 @@ import { metrics } from '../lib/metrics.js';
 import { parsePython, parseJava } from '../lib/ast-parser.js';
 import { alignNodes } from '../lib/ast-aligner.js';
 import { explainPythonToJava } from '../lib/explain.js';
+import {
+  SESSION_COOKIE_NAME,
+  consumeUserGeminiQuota,
+  verifySessionToken,
+} from '../lib/session.js';
 import {
   MAX_CODE_CHARS,
   extractTrustedClientIp,
@@ -85,6 +90,40 @@ async function getServerActionClientContext() {
   };
 }
 
+async function requireAuthenticatedActionSession() {
+  const ctx = await getServerActionClientContext();
+  if (!ctx.originAllowed) {
+    return {
+      ...ctx,
+      session: null,
+      authError: { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' },
+    };
+  }
+
+  const cookieStore = await cookies();
+  const rawToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  const session = verifySessionToken(rawToken);
+  if (!session) {
+    return {
+      ...ctx,
+      session: null,
+      authError: {
+        ok: false,
+        status: 401,
+        code: 'AUTH_REQUIRED',
+        error: 'Sign in with Google (Gmail) is required for live AI & webhook features.',
+      },
+    };
+  }
+
+  return {
+    ...ctx,
+    session,
+    userBucketId: `user:${session.sub}`,
+    authError: null,
+  };
+}
+
 /**
  * Interactive Studio Server Action: executes AST cache, Gemini transpilation,
  * self-healing, and SSRF-safe webhook delivery strictly on the server without
@@ -98,14 +137,14 @@ export async function studioTranspileAction({
   bypassCache = false,
 } = {}) {
   const startTime = performance.now();
-  const { clientId, origin, originAllowed } = await getServerActionClientContext();
-  if (!originAllowed) {
-    metrics.incTranspile(403);
-    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  const { origin, session, userBucketId, authError } = await requireAuthenticatedActionSession();
+  if (authError) {
+    metrics.incTranspile(authError.status);
+    return authError;
   }
 
   const rateLimit = checkRateLimit(null, {
-    clientId,
+    clientId: userBucketId,
     keyPrefix: 'ui_transpile:',
     limit: 15,
     windowMs: 60 * 1000,
@@ -116,7 +155,7 @@ export async function studioTranspileAction({
     return {
       ok: false,
       status: 429,
-      error: 'UI rate limit exceeded (15 requests/minute). Please retry in a moment.',
+      error: `Rate limit exceeded for ${session.email} (15 requests/minute). Please retry shortly.`,
     };
   }
 
@@ -162,7 +201,8 @@ export async function studioTranspileAction({
       metrics.incCacheHit();
     } else {
       metrics.incCacheMiss();
-      const skipServerKey = !safeOverrideKey && !consumeServerGeminiUiBudget();
+      const userQuotaOk = safeOverrideKey ? true : consumeUserGeminiQuota(session.sub).allowed;
+      const skipServerKey = !safeOverrideKey && (!userQuotaOk || !consumeServerGeminiUiBudget());
 
       const transpiled = await transpilePythonToJava(
         pythonCode,
@@ -275,12 +315,12 @@ export async function studioTranspileAction({
  */
 export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {}) {
   metrics.incExplainRequest();
-  const { clientId, originAllowed } = await getServerActionClientContext();
-  if (!originAllowed) {
-    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  const { session, userBucketId, authError } = await requireAuthenticatedActionSession();
+  if (authError) {
+    return authError;
   }
   const rateLimit = checkRateLimit(null, {
-    clientId,
+    clientId: userBucketId,
     keyPrefix: 'ui_explain:',
     limit: 20,
     windowMs: 60 * 1000,
@@ -289,7 +329,7 @@ export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {
     return {
       ok: false,
       status: 429,
-      error: 'Explanation rate limit exceeded. Please retry shortly.',
+      error: 'Explanation rate limit exceeded for your account. Please retry shortly.',
     };
   }
 
@@ -304,7 +344,7 @@ export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {
   }
 
   try {
-    const skipServerKey = !consumeServerGeminiUiBudget();
+    const skipServerKey = !consumeUserGeminiQuota(session.sub).allowed || !consumeServerGeminiUiBudget();
     const data = await explainPythonToJava(pythonCode, versionCheck.value, { skipServerKey });
     return { ok: true, status: 200, data };
   } catch {
@@ -317,12 +357,12 @@ export async function studioExplainAction({ pythonCode, javaVersion = '17' } = {
  * AST node alignment without needing APP_API_KEY in the browser.
  */
 export async function studioAstDiffAction({ pythonCode } = {}) {
-  const { clientId, originAllowed } = await getServerActionClientContext();
-  if (!originAllowed) {
-    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  const { session, userBucketId, authError } = await requireAuthenticatedActionSession();
+  if (authError) {
+    return authError;
   }
   const rateLimit = checkRateLimit(null, {
-    clientId,
+    clientId: userBucketId,
     keyPrefix: 'ui_ast:',
     limit: 20,
     windowMs: 60 * 1000,
@@ -331,7 +371,7 @@ export async function studioAstDiffAction({ pythonCode } = {}) {
     return {
       ok: false,
       status: 429,
-      error: 'AST analysis rate limit exceeded. Please retry shortly.',
+      error: 'AST analysis rate limit exceeded for your account. Please retry shortly.',
     };
   }
 
@@ -346,7 +386,7 @@ export async function studioAstDiffAction({ pythonCode } = {}) {
 
     let javaCode = cachedHit?.javaCode || '';
     if (!javaCode) {
-      const skipServerKey = !consumeServerGeminiUiBudget();
+      const skipServerKey = !consumeUserGeminiQuota(session.sub).allowed || !consumeServerGeminiUiBudget();
       const transpiled = await transpilePythonToJava(pythonCode, 'Java 17 LTS', null, { skipServerKey });
       const healed = await healJavaCode({
         javaCode: transpiled.javaCode,
@@ -405,12 +445,12 @@ export async function studioDispatchWebhookAction({
   latencyMs = 31,
   customSecret = '',
 } = {}) {
-  const { clientId, origin, originAllowed } = await getServerActionClientContext();
-  if (!originAllowed) {
-    return { ok: false, status: 403, error: 'Cross-origin Server Action invocation rejected.' };
+  const { origin, userBucketId, authError } = await requireAuthenticatedActionSession();
+  if (authError) {
+    return authError;
   }
   const rateLimit = checkRateLimit(null, {
-    clientId,
+    clientId: userBucketId,
     keyPrefix: 'ui_webhook:',
     limit: 15,
     windowMs: 60 * 1000,
@@ -469,6 +509,10 @@ export async function studioDispatchWebhookAction({
  * without embedding WEBHOOK_SECRET or creating an arbitrary signing oracle.
  */
 export async function studioGetSampleSignatureAction() {
+  const { authError } = await requireAuthenticatedActionSession();
+  if (authError) {
+    return { ok: false, status: authError.status, headers: {} };
+  }
   try {
     const hmacHex = computeWebhookSignature(STATIC_DEMO_SAMPLE_PAYLOAD);
     return {

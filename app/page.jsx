@@ -7,6 +7,7 @@ import TranspilerStudio from './components/TranspilerStudio';
 import ApiPlayground from './components/ApiPlayground';
 import WebhookInspector from './components/WebhookInspector';
 import DocumentationView from './components/DocumentationView';
+import AuthModal from './components/AuthModal';
 import {
   studioTranspileAction,
   studioDispatchWebhookAction,
@@ -622,11 +623,43 @@ export default function JForgeOrchestrator() {
 
   // Engine Modal & Key Configuration (server secret never exposed in browser bundle)
   const [engineModalOpen, setEngineModalOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [oauthConfigured, setOauthConfigured] = useState(true);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authPromptReason, setAuthPromptReason] = useState('');
   const [liveGeminiKey, setLiveGeminiKey] = useState('');
   const [activeEngine, setActiveEngine] = useState('Gemini Live');
   const [tempGeminiKey, setTempGeminiKey] = useState('');
   const [configuredGatewayKey, setConfiguredGatewayKey] = useState('');
   const [tempGatewayKey, setTempGatewayKey] = useState('');
+
+  // Global Toast & Copy Feedback
+  const [toast, setToast] = useState({ visible: false, message: '' });
+  const [copiedId, setCopiedId] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const showToast = (message) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ visible: true, message });
+    toastTimerRef.current = setTimeout(() => {
+      setToast({ visible: false, message: '' });
+    }, 2400);
+  };
+
+  const promptSignIn = (reason = '') => {
+    setAuthPromptReason(reason);
+    setAuthModalOpen(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Clear client state cleanly regardless
+    }
+    setAuthUser(null);
+    showToast('Signed out of J-Forge');
+  };
 
   // Playground state
   const [pgApiKey, setPgApiKey] = useState('');
@@ -686,42 +719,56 @@ export default function JForgeOrchestrator() {
   const [webhookDeliveries, setWebhookDeliveries] = useState([INITIAL_SAMPLE_WEBHOOK]);
   const [selectedWebhookIndex, setSelectedWebhookIndex] = useState(0);
 
-  // Hydrate initial sample webhook signature via server action without leaking WEBHOOK_SECRET
+  // Load authenticated Google session status + hydrate sample webhook signature when signed in
   useEffect(() => {
     let active = true;
-    studioGetSampleSignatureAction().then((res) => {
-      if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
-      setWebhookDeliveries((prev) =>
-        prev.map((item, idx) =>
-          idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
-            ? {
-                ...item,
-                headers: {
-                  ...item.headers,
-                  ...res.headers,
-                },
-              }
-            : item
-        )
-      );
-    }).catch(() => {});
+
+    const params = new URLSearchParams(window.location.search);
+    const authErr = params.get('auth_error');
+    if (authErr) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((sess) => {
+        if (!active) return;
+        setOauthConfigured(Boolean(sess?.oauthConfigured));
+        const user = sess?.authenticated ? sess.user : null;
+        setAuthUser(user);
+
+        if (authErr) {
+          setAuthPromptReason(`Google sign-in did not complete (${authErr}).`);
+          setAuthModalOpen(true);
+        }
+
+        if (user) {
+          studioGetSampleSignatureAction()
+            .then((res) => {
+              if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
+              setWebhookDeliveries((prev) =>
+                prev.map((item, idx) =>
+                  idx === 0 && item.id === INITIAL_SAMPLE_WEBHOOK.id && !item.headers?.['X-Signature-SHA256']
+                    ? {
+                        ...item,
+                        headers: {
+                          ...item.headers,
+                          ...res.headers,
+                        },
+                      }
+                    : item
+                )
+              );
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+
     return () => {
       active = false;
     };
   }, []);
-
-  // Global Toast & Copy Feedback
-  const [toast, setToast] = useState({ visible: false, message: '' });
-  const [copiedId, setCopiedId] = useState(null);
-  const toastTimerRef = useRef(null);
-
-  const showToast = (message) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast({ visible: true, message });
-    toastTimerRef.current = setTimeout(() => {
-      setToast({ visible: false, message: '' });
-    }, 2400);
-  };
 
   const copyToClipboard = (text, id, toastMsg) => {
     if (navigator?.clipboard?.writeText) {
@@ -771,6 +818,11 @@ export default function JForgeOrchestrator() {
       latencyMs,
       customSecret: webhookSigningSecret,
     });
+
+    if (result?.status === 401 || result?.code === 'AUTH_REQUIRED') {
+      promptSignIn(result.error || 'Please sign in with Google (Gmail) to dispatch live webhooks.');
+      return null;
+    }
 
     const entry = result.entry;
     setWebhookDeliveries((prev) => [entry, ...prev]);
@@ -857,6 +909,9 @@ export default function JForgeOrchestrator() {
                 setActiveEngine(actionRes.engine.includes('gemini') ? 'Gemini Live' : 'Smart AST');
               }
             }
+          } else if (actionRes?.status === 401 || actionRes?.code === 'AUTH_REQUIRED') {
+            promptSignIn(actionRes?.error || 'Please sign in with Google (Gmail) to run live Gemini transpilation.');
+            return;
           } else {
             apiErrorStatus = actionRes?.status || 400;
             apiErrorMessage = actionRes?.error || `Studio transpilation failed (HTTP ${apiErrorStatus})`;
@@ -1202,7 +1257,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
       orig.payload?.data?.java_preview || '',
       22
     );
-    showToast(`Replayed webhook ${orig.id} (HTTP ${entry.statusCode})`);
+    if (entry) {
+      showToast(`Replayed webhook ${orig.id} (HTTP ${entry.statusCode})`);
+    }
   };
 
   const handleClearWebhookLogs = () => {
@@ -1239,6 +1296,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
         latency={latency}
         webhookCount={webhookDeliveries.length}
         showToast={showToast}
+        authUser={authUser}
+        onOpenAuthModal={() => promptSignIn('')}
+        onLogout={handleLogout}
       />
 
       {/* Main Shell (Sidebar Rail + Active Workspace View) */}
@@ -1276,6 +1336,7 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               isCacheHit={isCacheHit}
               selfHealing={selfHealing}
               gatewayApiKey={configuredGatewayKey}
+              onRequireAuth={promptSignIn}
             />
           )}
 
@@ -1311,7 +1372,9 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
               setSelectedWebhookIndex={setSelectedWebhookIndex}
               onTriggerManualWebhook={async () => {
                 const entry = await recordWebhookDelivery(webhookEventTopic, 200, pythonCode, javaCode, 31, null);
-                showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP ${entry.statusCode})`);
+                if (entry) {
+                  showToast(`Webhook dispatched: ${webhookEventTopic} (HTTP ${entry.statusCode})`);
+                }
               }}
               onClearLogs={handleClearWebhookLogs}
               onReplayWebhook={handleReplayWebhook}
@@ -1394,6 +1457,15 @@ J-Forge is an autonomous Python 3.11 to Java 17 LTS code converter and REST API 
           </div>
         </div>
       )}
+
+      {/* Google Sign-In Modal */}
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        oauthConfigured={oauthConfigured}
+        returnTo="/"
+        reason={authPromptReason}
+      />
 
       {/* Floating Toast Notification */}
       <div

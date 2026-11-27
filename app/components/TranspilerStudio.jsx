@@ -49,6 +49,7 @@ export default function TranspilerStudio({
   isCacheHit = false,
   selfHealing = null,
   gatewayApiKey = '',
+  onRequireAuth = () => {},
 }) {
   const pyTextareaRef = useRef(null);
   const pyGutterRef = useRef(null);
@@ -159,6 +160,8 @@ export default function TranspilerStudio({
       });
       if (actionRes?.ok) {
         setDiagnostics(actionRes.data);
+      } else if (actionRes?.status === 401 || actionRes?.code === 'AUTH_REQUIRED') {
+        onRequireAuth(actionRes?.error || 'Please sign in with Google (Gmail) to run AI compiler diagnostics.');
       }
     } catch (_) {
       // Handled gracefully

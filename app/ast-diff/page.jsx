@@ -11,8 +11,12 @@ import {
   Code2,
   ArrowLeft,
   CheckCircle2,
+  LogIn,
+  LogOut,
+  Lock,
 } from 'lucide-react';
 import ASTDiffViewer from '../../components/ASTDiffViewer.jsx';
+import AuthModal from '../components/AuthModal.jsx';
 import { studioAstDiffAction } from '../actions.js';
 
 const SAMPLE_PRESETS = {
@@ -68,6 +72,11 @@ export default function ASTDiffPage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [oauthConfigured, setOauthConfigured] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authReason, setAuthReason] = useState('');
 
   const analyzeCode = useCallback(async (codeToAnalyze) => {
     if (!codeToAnalyze || !codeToAnalyze.trim()) {
@@ -81,6 +90,12 @@ export default function ASTDiffPage() {
 
     try {
       const result = await studioAstDiffAction({ pythonCode: codeToAnalyze });
+      if (result?.status === 401 || result?.code === 'AUTH_REQUIRED') {
+        setAuthReason(result?.error || 'Sign in with Google (Gmail) to run live AST Diff analysis.');
+        setAuthModalOpen(true);
+        setStatusMessage('');
+        return;
+      }
       if (!result?.ok) {
         throw new Error(result?.error || 'AST differential analysis failed.');
       }
@@ -103,16 +118,45 @@ export default function ASTDiffPage() {
     const preset = SAMPLE_PRESETS[key];
     if (preset) {
       setPythonCode(preset.code);
-      void analyzeCode(preset.code);
+      if (authUser) {
+        void analyzeCode(preset.code);
+      } else {
+        setAuthReason('Sign in with Google (Gmail) to run live AST analysis on presets.');
+        setAuthModalOpen(true);
+      }
     }
   };
 
-  // Run initial analysis asynchronously after mount
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore
+    }
+    setAuthUser(null);
+  };
+
+  // Check session on mount and run initial analysis automatically if authenticated
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void analyzeCode(SAMPLE_PRESETS.fastapi.code);
-    }, 0);
-    return () => clearTimeout(timer);
+    let active = true;
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((sess) => {
+        if (!active) return;
+        setOauthConfigured(Boolean(sess?.oauthConfigured));
+        const user = sess?.authenticated ? sess.user : null;
+        setAuthUser(user);
+        setAuthChecked(true);
+        if (user) {
+          void analyzeCode(SAMPLE_PRESETS.fastapi.code);
+        }
+      })
+      .catch(() => {
+        if (active) setAuthChecked(true);
+      });
+    return () => {
+      active = false;
+    };
   }, [analyzeCode]);
 
   return (
@@ -137,17 +181,61 @@ export default function ASTDiffPage() {
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
-          <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+          <span className="hidden md:inline-block px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
             Java 17 LTS / Spring Boot 3
           </span>
-          <span className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold">
+          <span className="hidden lg:inline-block px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30 font-semibold">
             Tree-Sitter AST
           </span>
+          {authUser ? (
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-block px-2 py-1 rounded bg-slate-800 text-slate-200 max-w-[140px] truncate">
+                {authUser.name || authUser.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-2.5 py-1 rounded border border-slate-700 hover:bg-slate-800 text-slate-200 flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setAuthReason('');
+                setAuthModalOpen(true);
+              }}
+              className="px-3 py-1 rounded bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
       </header>
 
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+        {authChecked && !authUser && (
+          <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-xs font-mono text-amber-200">
+              <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                Sign in with your Google (Gmail) account to run live Gemini 2.5 Flash synthesis & AST alignment.
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setAuthReason('');
+                setAuthModalOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono font-bold text-xs cursor-pointer"
+            >
+              Continue with Google (Gmail)
+            </button>
+          </div>
+        )}
         {/* Header Hero Banner */}
         <div className="p-6 rounded-xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900/80 to-slate-950 shadow-xl space-y-2">
           <div className="flex items-center gap-2 text-sky-400 font-mono text-xs font-bold uppercase tracking-wider">
@@ -268,6 +356,14 @@ export default function ASTDiffPage() {
           />
         </section>
       </div>
+
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        oauthConfigured={oauthConfigured}
+        returnTo="/ast-diff"
+        reason={authReason}
+      />
     </main>
   );
 }
