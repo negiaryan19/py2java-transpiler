@@ -27,6 +27,7 @@ import {
   History,
   MessageSquarePlus,
   Play,
+  Link2,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { studioExplainAction } from '../actions.js';
@@ -73,6 +74,35 @@ export default function TranspilerStudio({
   const [consoleTab, setConsoleTab] = useState('stdout'); // 'stdout' | 'javaRun' | 'diagnostics'
   const [javaRunResult, setJavaRunResult] = useState(null);
   const [isRunningJava, setIsRunningJava] = useState(false);
+  const [githubImportOpen, setGithubImportOpen] = useState(false);
+  const [githubUrl, setGithubUrl] = useState('');
+  const [isImportingGithub, setIsImportingGithub] = useState(false);
+  const [githubImportError, setGithubImportError] = useState('');
+
+  const handleImportGithub = async () => {
+    if (!githubUrl.trim() || isImportingGithub) return;
+    setIsImportingGithub(true);
+    setGithubImportError('');
+    try {
+      const res = await fetch('/api/v1/import-github', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: githubUrl.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.code) {
+        setPythonCode(data.code);
+        setGithubImportOpen(false);
+        setGithubUrl('');
+      } else {
+        setGithubImportError(data.error || 'Failed to import from GitHub.');
+      }
+    } catch {
+      setGithubImportError('Network error while importing from GitHub.');
+    } finally {
+      setIsImportingGithub(false);
+    }
+  };
 
   const handleRunJava = async () => {
     if (!javaCode?.trim() || isRunningJava) return;
@@ -650,6 +680,17 @@ export default function TranspilerStudio({
                 <span>Upload</span>
               </button>
               <button
+                onClick={() => {
+                  setGithubImportOpen((v) => !v);
+                  setGithubImportError('');
+                }}
+                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
+                title="Import Python file from public GitHub URL"
+              >
+                <Link2 className="w-2.5 h-2.5" />
+                <span>GitHub</span>
+              </button>
+              <button
                 onClick={handleAutoFormat}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
                 title="Auto-Format & Normalize Indentation (4 spaces)"
@@ -681,6 +722,33 @@ export default function TranspilerStudio({
           </div>
 
           {/* Code Area with Synchronized Line Gutter */}
+          {githubImportOpen && (
+            <div className="px-3.5 py-2 t-border-b flex flex-col gap-1.5 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/user/repo/blob/main/script.py"
+                  className="flex-1 px-2.5 py-1 t-surface text-xs focus:outline-none"
+                />
+                <button
+                  onClick={handleImportGithub}
+                  disabled={isImportingGithub || !githubUrl.trim()}
+                  className="t-btn-primary px-2.5 py-1 text-[11px] cursor-pointer disabled:opacity-50"
+                >
+                  {isImportingGithub ? 'Importing...' : 'Import'}
+                </button>
+                <button
+                  onClick={() => setGithubImportOpen(false)}
+                  className="t-btn-secondary px-2 py-1 text-[11px] cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+              {githubImportError && <p className="text-[11px] text-red-500">{githubImportError}</p>}
+            </div>
+          )}
           <div className="flex-1 flex overflow-hidden relative">
             <div
               ref={pyGutterRef}

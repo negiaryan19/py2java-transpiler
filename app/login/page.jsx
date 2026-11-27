@@ -28,6 +28,44 @@ export default function LoginPage() {
   const [success, setSuccess] = useState('');
   const [returnTo, setReturnTo] = useState('/');
   const [dbConfigured, setDbConfigured] = useState(true);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const payload = resetSent
+        ? { action: 'reset', email: email.trim(), code: resetCode.trim(), newPassword }
+        : { action: 'request', email: email.trim() };
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Password reset failed.');
+      } else if (!resetSent) {
+        setResetSent(true);
+        setSuccess(data.message || 'Reset code sent! Check your email.');
+      } else {
+        setSuccess(data.message || 'Password updated! You can now sign in.');
+        setForgotOpen(false);
+        setResetSent(false);
+        setResetCode('');
+        setNewPassword('');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check session + read safe returnTo on mount
   useEffect(() => {
@@ -249,6 +287,21 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {mode === 'login' && (
+              <div className="flex justify-end mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotOpen((v) => !v);
+                    setError('');
+                    setSuccess('');
+                  }}
+                  className="text-[11px] font-mono text-sky-400 hover:text-sky-300 cursor-pointer"
+                >
+                  {forgotOpen ? 'Back to Sign In' : 'Forgot password?'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Organization & Role (register only) */}
@@ -307,6 +360,44 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+
+        {forgotOpen && (
+          <form onSubmit={handleForgotSubmit} className="p-3.5 rounded-lg border border-slate-800 bg-slate-950/70 space-y-3">
+            <p className="text-xs font-mono font-semibold text-slate-200">
+              {resetSent ? 'Enter 6-digit Reset Code & New Password' : 'Reset your password via email'}
+            </p>
+            {resetSent && (
+              <>
+                <input
+                  type="text"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  placeholder="6-digit code"
+                  required
+                  maxLength={6}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="New password (min 8 chars)"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 font-mono text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                />
+              </>
+            )}
+            <button
+              type="submit"
+              disabled={loading || !email.trim()}
+              className="w-full py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-mono font-bold text-xs cursor-pointer disabled:opacity-50"
+            >
+              {loading ? 'Please wait...' : resetSent ? 'Update Password' : 'Send Reset Code to Email'}
+            </button>
+          </form>
+        )}
 
         {/* Footer */}
         <p className="text-center text-[11px] text-slate-500 font-mono">

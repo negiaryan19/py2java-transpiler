@@ -710,6 +710,14 @@ export default function JForgeOrchestrator() {
         }
 
         if (user) {
+          fetch('/api/history', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((h) => {
+              if (active && h?.ok && Array.isArray(h.items) && h.items.length > 0) {
+                setHistory(h.items.slice(0, 10));
+              }
+            })
+            .catch(() => {});
           studioGetSampleSignatureAction()
             .then((res) => {
               if (!active || !res?.ok || !res.headers?.['X-Signature-SHA256']) return;
@@ -892,7 +900,7 @@ export default function JForgeOrchestrator() {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setHistory((prev) => {
-        const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 5);
+        const next = [newEntry, ...prev.filter((h) => h.pythonCode !== pythonCode)].slice(0, 10);
         try {
           localStorage.setItem('jforge_history', JSON.stringify(next));
         } catch {
@@ -900,6 +908,18 @@ export default function JForgeOrchestrator() {
         }
         return next;
       });
+      if (authUser) {
+        fetch('/api/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            label: newEntry.label,
+            pythonCode,
+            javaCode: javaResult,
+            javaTargetVersion,
+          }),
+        }).catch(() => {});
+      }
 
       await recordWebhookDelivery(
         'code.conversion.completed',
