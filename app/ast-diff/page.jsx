@@ -169,14 +169,14 @@ export default function ASTDiffPage() {
             className="flex items-center gap-1.5 text-xs font-mono text-slate-400 hover:text-slate-100 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to J-Forge Studio</span>
+            <span>Back to Converter</span>
           </Link>
           <div className="h-4 w-px bg-slate-800"></div>
           <div className="flex items-center gap-2">
             <span className="p-1 rounded bg-sky-500/10 text-sky-400 border border-sky-500/30">
               <Code2 className="w-4 h-4" />
             </span>
-            <span className="font-bold text-sm tracking-tight">AST Differential Inspector</span>
+            <span className="font-bold text-sm tracking-tight">Code Comparison</span>
           </div>
         </div>
 

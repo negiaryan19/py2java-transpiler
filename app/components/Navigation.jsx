@@ -187,14 +187,11 @@ export function SidebarRail({
 
           <Link
             href="/ast-diff"
-            className="nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/15 rounded transition-all"
+            className="nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer rounded transition-all"
           >
             <span className="flex items-center gap-2.5">
               <Sparkles className="w-4 h-4 shrink-0 text-sky-600" />
-              <span className="font-semibold" style={{ color: 'var(--text-main)' }}>AST Diff Inspector</span>
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-600 font-bold">
-              DIFF
+              <span>Code Comparison</span>
             </span>
           </Link>
         </nav>
