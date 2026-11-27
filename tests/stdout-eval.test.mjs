@@ -54,3 +54,26 @@ test('Stdout Evaluator: evaluates list comprehensions with filter condition', ()
   ].join('\n');
   assert.deepEqual(evaluatePythonStdout(code), ['[4, 16, 36, 64, 100]']);
 });
+
+test('Stdout Evaluator: supports while loops, def recursion, dicts, string methods, and for-in lists', () => {
+  assert.deepEqual(
+    evaluatePythonStdout('count = 3\nwhile count > 0:\n    print(count)\n    count -= 1'),
+    ['3', '2', '1']
+  );
+  assert.deepEqual(
+    evaluatePythonStdout('def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1)\nprint(fact(5))'),
+    ['120']
+  );
+  assert.deepEqual(
+    evaluatePythonStdout('user = {"name": "Aryan", "age": 20}\nprint(f"Name: {user[\'name\']}")'),
+    ['Name: Aryan']
+  );
+  assert.deepEqual(
+    evaluatePythonStdout('s = "hello world"\nprint(s.upper())'),
+    ['HELLO WORLD']
+  );
+  assert.deepEqual(
+    evaluatePythonStdout('fruits = ["apple", "banana"]\nfor f in fruits:\n    print(f)'),
+    ['apple', 'banana']
+  );
+});
