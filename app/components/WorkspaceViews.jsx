@@ -23,13 +23,15 @@ import {
   Palette,
 } from 'lucide-react';
 import { analyzePythonCompatibility, detectPythonDependencies, analyzeCodeQuality } from '../../lib/compatibility';
+import { buildZipBytes } from '../../lib/zip-export';
+import { PythonLogo, JavaLogo } from './LanguageLogos';
 
 const ACCENT_OPTIONS = [
-  { id: 'violet', label: 'Violet', hex: '#7C3AED' },
+  { id: 'orange', label: 'Forge Orange', hex: '#F97316' },
+  { id: 'violet', label: 'Cosmic Violet', hex: '#7C3AED' },
   { id: 'emerald', label: 'Emerald', hex: '#10B981' },
-  { id: 'sky', label: 'Sky', hex: '#0EA5E9' },
-  { id: 'amber', label: 'Amber', hex: '#D97706' },
-  { id: 'rose', label: 'Rose', hex: '#E11D48' },
+  { id: 'sky', label: 'Sky Cyan', hex: '#0EA5E9' },
+  { id: 'rose', label: 'Crimson Rose', hex: '#E11D48' },
 ];
 
 export function FilesWorkspaceView({
@@ -40,13 +42,82 @@ export function FilesWorkspaceView({
   onDeleteFile = () => {},
   onOpenConverter = () => {},
 }) {
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [targetJavaVersion, setTargetJavaVersion] = useState('21');
+  const [migrating, setMigrating] = useState(false);
+  const [migrationError, setMigrationError] = useState('');
+  const [migrationResult, setMigrationResult] = useState(null);
+
+  const handleUploadProjectFiles = async (event) => {
+    const fileList = Array.from(event.target.files || []).slice(0, 15);
+    if (!fileList.length) return;
+    const loaded = await Promise.all(
+      fileList.map(async (f) => ({
+        path: (f.webkitRelativePath || f.name || 'module.py').replace(/^\/+/, ''),
+        content: await f.text(),
+      }))
+    );
+    setUploadedFiles(loaded);
+    setMigrationError('');
+  };
+
+  const handleRunProjectMigration = async () => {
+    const bufferSources = files
+      .filter((f) => typeof f.pythonCode === 'string' && f.pythonCode.trim())
+      .map((f, idx) => ({
+        path: f.filename || `module_${idx + 1}.py`,
+        content: f.pythonCode,
+      }));
+    const payloadFiles = uploadedFiles.length > 0 ? uploadedFiles : bufferSources;
+    if (!payloadFiles.length) {
+      setMigrationError('Add at least one non-empty Python buffer or upload .py files first.');
+      return;
+    }
+
+    setMigrating(true);
+    setMigrationError('');
+    try {
+      const res = await fetch('/api/v1/projects/migrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: payloadFiles.slice(0, 15),
+          java_version: targetJavaVersion,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setMigrationError(data.error || 'Project migration failed.');
+        setMigrationResult(null);
+      } else {
+        setMigrationResult(data);
+      }
+    } catch (err) {
+      setMigrationError(err.message || 'Network error running multi-file migration.');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const handleDownloadMigratedZip = () => {
+    if (!migrationResult?.generatedFiles?.length) return;
+    const zipBytes = buildZipBytes(migrationResult.generatedFiles);
+    const blob = new Blob([zipBytes], { type: 'application/zip' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jforge-migrated-java${targetJavaVersion}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       <div className="t-surface p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-base font-semibold heading-font">Workspace Files</h1>
+          <h1 className="text-base font-semibold heading-font">Workspace Projects &amp; Multi-File Migration</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Manage multiple Python scripts and conversion buffers on this device.
+            Manage Python workspace buffers or migrate up to 15 Python modules into a Maven Java package.
           </p>
         </div>
         <button
@@ -66,11 +137,11 @@ export function FilesWorkspaceView({
             <div
               key={f.id}
               className={`p-3 rounded flex flex-wrap items-center justify-between gap-2 text-xs font-mono border ${
-                active ? 'border-indigo-500/60 bg-indigo-500/5' : 't-subtle'
+                active ? 'border-orange-500/60 bg-orange-500/5' : 't-subtle'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <FileCode2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                <PythonLogo className="w-4 h-4 shrink-0" />
                 <div className="min-w-0">
                   <div className="font-semibold truncate">{f.title || 'Untitled conversion'}</div>
                   <div className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
@@ -103,13 +174,114 @@ export function FilesWorkspaceView({
           );
         })}
       </div>
+
+      <div className="t-surface p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-orange-400" />
+            <div>
+              <h2 className="text-sm font-semibold heading-font">Batch Python → Maven Project Migrator</h2>
+              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                Analyzes entrypoints, internal imports, and unsupported APIs across workspace tabs or uploaded .py files.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <select
+              value={targetJavaVersion}
+              onChange={(e) => setTargetJavaVersion(e.target.value)}
+              className="t-subtle px-2.5 py-1.5 text-xs"
+              aria-label="Migration Java LTS target"
+            >
+              <option value="11">Java 11 LTS</option>
+              <option value="17">Java 17 LTS</option>
+              <option value="21">Java 21 LTS</option>
+            </select>
+            <label className="t-btn-secondary px-2.5 py-1.5 cursor-pointer">
+              <input
+                type="file"
+                multiple
+                accept=".py,.txt"
+                onChange={handleUploadProjectFiles}
+                className="hidden"
+              />
+              <span>{uploadedFiles.length ? `${uploadedFiles.length} Uploaded` : 'Upload .py Files'}</span>
+            </label>
+            <button
+              onClick={handleRunProjectMigration}
+              disabled={migrating}
+              className="t-btn-primary px-3 py-1.5 cursor-pointer disabled:opacity-60"
+            >
+              {migrating ? 'Migrating...' : 'Migrate Project → Maven'}
+            </button>
+          </div>
+        </div>
+
+        {migrationError && (
+          <div className="p-2.5 rounded border border-rose-500/40 bg-rose-500/10 text-rose-300 text-xs font-mono">
+            {migrationError}
+          </div>
+        )}
+
+        {migrationResult && (
+          <div className="space-y-3 pt-2 border-t border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-emerald-400 font-semibold">
+                  {migrationResult.plan.pythonModules} module(s) converted → {migrationResult.javaVersion}
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  Entrypoints: {migrationResult.plan.entrypoints.length ? migrationResult.plan.entrypoints.join(', ') : 'None detected'}
+                </span>
+              </div>
+              <button
+                onClick={handleDownloadMigratedZip}
+                className="t-btn-secondary px-3 py-1.5 flex items-center gap-1.5 text-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Maven ZIP</span>
+              </button>
+            </div>
+
+            {migrationResult.plan.manualInterventionRequired?.length > 0 && (
+              <div className="p-2.5 rounded border border-amber-500/40 bg-amber-500/10 text-xs font-mono space-y-1">
+                <div className="font-semibold text-amber-300">Manual Review Required</div>
+                {migrationResult.plan.manualInterventionRequired.map((w, idx) => (
+                  <div key={idx} className="text-amber-200/90">
+                    {w.file}: {w.reason}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              {migrationResult.modules.map((m) => (
+                <div key={m.sourcePath} className="t-subtle p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <PythonLogo className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">{m.sourcePath}</span>
+                    <ArrowRight className="w-3 h-3 opacity-60 shrink-0" />
+                    <JavaLogo className="w-3.5 h-3.5 shrink-0" />
+                    <span className="text-orange-300 truncate">{m.targetPath}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px]">
+                    {m.isEntrypoint && (
+                      <span className="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300">entrypoint</span>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded bg-white/5" style={{ color: 'var(--text-secondary)' }}>
+                      {m.compatibilityStatus}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/**
- * Screen 8: Projects & History matching Bottom-Center Panel
- */
 export function HistoryWorkspaceView({
   authUser = null,
   history = [],
@@ -124,7 +296,7 @@ export function HistoryWorkspaceView({
   onDuplicateHistory = () => {},
   onToggleFavorite = () => {},
 }) {
-  const [filterTab, setFilterTab] = useState('all'); // 'all' | 'recent' | 'favorites'
+  const [filterTab, setFilterTab] = useState('all');
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [draftLabel, setDraftLabel] = useState('');
@@ -179,7 +351,6 @@ export function HistoryWorkspaceView({
         </button>
       </div>
 
-      {/* Filter Tabs + Search Row */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 p-1 t-subtle text-xs font-mono">
           {[
@@ -215,7 +386,7 @@ export function HistoryWorkspaceView({
         <div className="t-surface p-4 space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="font-semibold flex items-center gap-1.5">
-              <GitCompare className="w-3.5 h-3.5 text-indigo-400" />
+              <GitCompare className="w-3.5 h-3.5 text-orange-400" />
               <span>Version Diff: {comparedItems[0].label} vs {comparedItems[1].label}</span>
             </span>
             <button onClick={() => setCompareIds([])} className="t-btn-secondary px-2 py-0.5 text-[11px] cursor-pointer">
@@ -229,7 +400,6 @@ export function HistoryWorkspaceView({
         </div>
       )}
 
-      {/* Main Grid: Project List + Right Real Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 t-surface p-3 space-y-2">
           {sorted.length === 0 ? (
@@ -281,10 +451,15 @@ export function HistoryWorkspaceView({
                           </button>
                         </div>
                       ) : (
-                        <div className="font-semibold truncate">{item.label}</div>
+                        <div className="font-semibold truncate flex items-center gap-1.5">
+                          <PythonLogo className="w-3.5 h-3.5 shrink-0" />
+                          <span>→</span>
+                          <JavaLogo className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </div>
                       )}
                       <div className="text-[11px] flex flex-wrap items-center gap-2 mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        <span>Python → {item.javaTargetVersion || 'Java 21 LTS'}</span>
+                        <span>{item.javaTargetVersion || 'Java 21 LTS'}</span>
                         <span>·</span>
                         <span>{item.time}</span>
                         {item.verifiedStatus && (
@@ -346,16 +521,18 @@ export function HistoryWorkspaceView({
           )}
         </div>
 
-        {/* Right Column Summary Cards matching Bottom-Center Showcase */}
         <div className="space-y-4">
           <div className="t-surface p-4 space-y-1">
             <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Total Saved</div>
-            <div className="text-3xl font-bold font-mono">{history.length}</div>
+            <div className="text-3xl font-bold font-mono text-sky-400">{history.length}</div>
             <div className="text-[11px] opacity-75">Verified matches: {matchedTotal}/{verifiedTotal}</div>
           </div>
 
           <div className="t-surface p-4 space-y-2.5">
-            <div className="text-xs font-mono font-semibold">Open Workspace Buffers ({workspaceFiles.length})</div>
+            <div className="text-xs font-mono font-semibold flex items-center gap-1.5">
+              <FileCode2 className="w-3.5 h-3.5 text-orange-400" />
+              <span>Open Workspace Buffers ({workspaceFiles.length})</span>
+            </div>
             <div className="space-y-1.5 text-xs font-mono">
               {workspaceFiles.map((f) => (
                 <button
@@ -381,7 +558,7 @@ export function HistoryWorkspaceView({
 }
 
 /**
- * Screen 7: Code Analysis View matching Bottom-Left Panel (Honest Metrics Only)
+ * Code Analysis View with Glowing SVG Radial Arc (Honest Construct Ratio Only)
  */
 export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
   const [subTab, setSubTab] = useState('overview');
@@ -391,6 +568,9 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
 
   const supportedCount = compat.findings.filter((f) => f.classification === 'Supported').length;
   const totalFindings = compat.findings.length;
+  const ratio = pythonCode.trim() && totalFindings > 0 ? supportedCount / totalFindings : 0;
+  const circumference = 2 * Math.PI * 44;
+  const dashOffset = circumference * (1 - ratio);
 
   return (
     <div className="space-y-4">
@@ -398,7 +578,7 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
         <div>
           <h1 className="text-xl font-bold tracking-tight heading-font">Code Analysis</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Get deterministic compatibility, dependency mappings &amp; static inspection insights
+            Deterministic compatibility, dependency mappings &amp; static quality audit
           </p>
         </div>
         <span className="text-xs font-mono px-2.5 py-1 t-subtle">
@@ -406,7 +586,6 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
         </span>
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-1 p-1 t-subtle w-fit text-xs font-mono">
         {[
           ['overview', 'Overview'],
@@ -428,21 +607,35 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
 
       {subTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Construct Readiness Ring (Truthful Construct Counts — Zero Fake 92%) */}
           <div className="t-surface p-5 flex flex-col items-center justify-center text-center space-y-2">
-            <div className="text-xs font-mono opacity-75">Static Construct Check</div>
-            <div className="w-28 h-28 rounded-full border-4 border-indigo-500/40 flex flex-col items-center justify-center">
-              <span className="text-lg font-bold font-mono">
-                {pythonCode.trim() ? `${supportedCount}/${totalFindings}` : '0/0'}
-              </span>
-              <span className="text-[10px] font-mono opacity-70">Supported</span>
+            <div className="text-xs font-mono opacity-75">Supported Constructs</div>
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="var(--border-color)" strokeWidth="8" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={dashOffset}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-lg font-bold font-mono">
+                  {pythonCode.trim() ? `${supportedCount}/${totalFindings}` : '0/0'}
+                </span>
+                <span className="text-[10px] font-mono opacity-70">Checks</span>
+              </div>
             </div>
             <div className="text-xs font-mono font-semibold text-emerald-400">
               {compat.status === 'empty' ? 'Waiting for Code' : compat.status}
             </div>
           </div>
 
-          {/* Key Insights */}
           <div className="t-surface p-4 space-y-2.5">
             <div className="text-xs font-mono font-semibold flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -458,7 +651,6 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
             </div>
           </div>
 
-          {/* Dependencies Quick Pills */}
           <div className="t-surface p-4 space-y-2.5">
             <div className="text-xs font-mono font-semibold flex items-center gap-1.5">
               <Package className="w-4 h-4 text-sky-400" />
@@ -488,8 +680,10 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
             deps.map((d, idx) => (
               <div key={idx} className="p-3 rounded t-subtle text-xs space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2 font-mono">
-                  <span><strong className="text-amber-400">{d.pythonPkg}</strong> → <strong className="text-emerald-400">{d.javaEquivalent}</strong></span>
-                  <span className="opacity-80">{d.classification}</span>
+                  <span><strong className="text-sky-400">{d.pythonPkg}</strong> → <strong className="text-orange-400">{d.javaEquivalent}</strong></span>
+                  <span className="px-2 py-0.5 rounded bg-white/5 text-[11px] opacity-85">
+                    {d.validationStatusLabel || d.classification}
+                  </span>
                 </div>
                 <p className="opacity-85">{d.compatibilityNote}</p>
                 {d.manualMigration && (
@@ -512,7 +706,7 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
       {subTab === 'suggestions' && (
         <div className="t-surface p-4 space-y-3">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-indigo-400" /> Quality Audit</span>
+            <span className="font-semibold flex items-center gap-2"><BarChart3 className="w-4 h-4 text-orange-400" /> Quality Audit</span>
             <span className="text-[10px] opacity-65">{quality.basis}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-mono">
@@ -535,7 +729,7 @@ export function AnalysisWorkspaceView({ pythonCode = '', javaCode = '' }) {
           {compat.findings.map((f, idx) => (
             <div key={idx} className="p-2.5 rounded t-subtle flex flex-wrap items-center justify-between gap-2">
               <span><strong>[{f.category}]</strong> {f.message}</span>
-              <span className="font-mono font-semibold text-indigo-400">{f.classification}</span>
+              <span className="font-mono font-semibold text-sky-400">{f.classification}</span>
             </div>
           ))}
         </div>
@@ -558,7 +752,7 @@ export function TestsWorkspaceView({
       <div className="t-surface p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-base font-semibold heading-font flex items-center gap-2">
-            <FlaskConical className="w-4 h-4 text-indigo-400" />
+            <FlaskConical className="w-4 h-4 text-orange-400" />
             <span>JUnit 5 Unit Test Generator</span>
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -588,9 +782,6 @@ export function TestsWorkspaceView({
   );
 }
 
-/**
- * Screen 9: Settings View matching Bottom-Right Panel (Theme + Interactive Accent Swatches + Live Preview)
- */
 export function SettingsWorkspaceView({
   settings,
   onUpdateSetting = () => {},
@@ -603,15 +794,14 @@ export function SettingsWorkspaceView({
     <div className="space-y-4 max-w-4xl">
       <div>
         <h1 className="text-xl font-bold tracking-tight heading-font flex items-center gap-2">
-          <Sliders className="w-4 h-4 text-indigo-400" />
+          <Sliders className="w-4 h-4 text-orange-400" />
           <span>Settings</span>
         </h1>
         <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          Customize your J-Forge Studio experience (stored locally in this browser; zero API keys or secrets persisted).
+          Customize your J-Forge Studio experience (stored locally in this browser; zero API keys persisted).
         </p>
       </div>
 
-      {/* Tabs */}
       <div className="flex flex-wrap gap-1 p-1 t-subtle w-fit text-xs font-mono">
         {[
           ['appearance', 'Appearance'],
@@ -664,7 +854,7 @@ export function SettingsWorkspaceView({
                       key={swatch.id}
                       onClick={() => onUpdateSetting('accent', swatch.id)}
                       className={`w-6 h-6 rounded-full cursor-pointer border-2 transition ${
-                        (settings.accent || 'violet') === swatch.id ? 'scale-110 border-white' : 'border-transparent opacity-80'
+                        (settings.accent || 'orange') === swatch.id ? 'scale-110 border-white' : 'border-transparent opacity-80'
                       }`}
                       style={{ backgroundColor: swatch.hex }}
                       title={swatch.label}
@@ -680,13 +870,12 @@ export function SettingsWorkspaceView({
               </label>
             </div>
 
-            {/* Live Typography & Theme Preview */}
             <div className="space-y-1.5">
               <span className="font-mono font-semibold block">Live Editor Preview ({settings.fontSize}px)</span>
               <pre
                 className="p-4 rounded t-subtle font-mono overflow-x-auto leading-relaxed"
                 style={{ backgroundColor: 'var(--bg-editor)', fontSize: `${settings.fontSize}px` }}
-              >{`def hello():\n    print("Hello, J-Forge!")`}</pre>
+              >{`def hello():\n    print("Hello, J-Forge V2!")`}</pre>
             </div>
           </div>
         )}
@@ -701,7 +890,7 @@ export function SettingsWorkspaceView({
                 max={18}
                 value={settings.fontSize}
                 onChange={(e) => onUpdateSetting('fontSize', Number(e.target.value))}
-                className="w-full accent-indigo-500"
+                className="w-full accent-orange-500"
               />
             </label>
             <label className="flex items-center justify-between p-2.5 t-subtle cursor-pointer">

@@ -8,12 +8,12 @@ export const metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0C0D12',
+  themeColor: '#080C14',
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" data-theme="dark">
+    <html lang="en" data-theme="dark" data-accent="orange">
       <body className="min-h-screen antialiased">
         {children}
       </body>

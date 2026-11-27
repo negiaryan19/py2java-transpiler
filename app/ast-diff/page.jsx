@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, LogIn, LogOut } from 'lucide-react';
+import BrandMark from '../components/BrandMark';
 import CodeComparisonView from '../components/CodeComparisonView';
 
 const DEFAULT_PY = `numbers = [1, 2, 3, 4, 5, 6]
@@ -25,7 +26,7 @@ export default function CodeComparisonPage() {
   const [pythonCode, setPythonCode] = useState(DEFAULT_PY);
   const [authUser, setAuthUser] = useState(null);
   const [theme, setTheme] = useState('dark');
-  const [accent, setAccent] = useState('violet');
+  const [accent, setAccent] = useState('orange');
 
   useEffect(() => {
     let active = true;
@@ -37,7 +38,7 @@ export default function CodeComparisonPage() {
           const savedTheme = localStorage.getItem('jforge_theme');
           if (savedTheme && ['dark', 'light'].includes(savedTheme)) setTheme(savedTheme);
           const savedAccent = localStorage.getItem('jforge_accent');
-          if (savedAccent && ['violet', 'emerald', 'sky', 'amber', 'rose'].includes(savedAccent)) setAccent(savedAccent);
+          if (savedAccent && ['orange', 'violet', 'emerald', 'sky', 'rose'].includes(savedAccent)) setAccent(savedAccent);
         } catch {
           // Ignore storage errors
         }
@@ -70,12 +71,7 @@ export default function CodeComparisonPage() {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back</span>
           </Link>
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 flex items-center justify-center font-mono font-bold text-sm t-btn-primary">
-              JF
-            </div>
-            <span className="font-bold tracking-tight text-sm sm:text-base heading-font">J-Forge</span>
-          </div>
+          <BrandMark size="md" showV2 />
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">

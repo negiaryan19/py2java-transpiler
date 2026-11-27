@@ -3,11 +3,7 @@
 import React, { useState } from 'react';
 import {
   ArrowRight,
-  Zap,
   ShieldCheck,
-  BarChart3,
-  Layout,
-  Sparkles,
   Play,
   Download,
   CheckCircle2,
@@ -19,162 +15,138 @@ import {
   Loader2,
   Check,
   Plus,
-  History,
-  ArrowLeftRight,
+  Sparkles,
+  Server,
+  Layers,
+  Cpu,
+  FlaskConical,
 } from 'lucide-react';
 import BrandMark from './BrandMark';
+import { PythonLogo, JavaLogo } from './LanguageLogos';
 import { buildConversionPassport } from '../../lib/compatibility';
 
 /**
- * Screen 1: Hero Landing View (zero fake testimonials, zero fake metrics, zero presets)
+ * Screen 1: Forge Dark Hero View matching Image 1 + Images 5/6 Pipeline
  */
 export function LandingHeroView({
   onStartConverting = () => {},
-  onOpenDocs = () => {},
   onOpenDashboard = () => {},
   authUser = null,
 }) {
   return (
-    <div className="cosmic-backdrop min-h-[calc(100vh-3rem)] flex flex-col justify-between py-10 px-4 sm:px-8">
-      <div className="max-w-6xl w-full mx-auto space-y-12 my-auto">
-        {/* Sub-nav row */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <BrandMark size="lg" />
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono">
-            <button onClick={onOpenDashboard} className="opacity-80 hover:opacity-100 cursor-pointer">
-              Dashboard
-            </button>
-            <button onClick={onStartConverting} className="opacity-80 hover:opacity-100 cursor-pointer">
-              Conversion Studio
-            </button>
-            <button onClick={onOpenDocs} className="opacity-80 hover:opacity-100 cursor-pointer">
-              Docs
-            </button>
-            <a
-              href="https://github.com/negiaryan19/py2java-transpiler"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="opacity-80 hover:opacity-100"
-            >
+    <div className="cosmic-backdrop min-h-[calc(100vh-3rem)] flex flex-col justify-between py-8 px-4 sm:px-8">
+      <div className="max-w-5xl w-full mx-auto space-y-10 my-auto">
+        {/* Top Floating Nav Pill matching Image 1 */}
+        <div className="t-surface px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+          <BrandMark size="md" showV2 />
+
+          <div className="flex flex-wrap items-center gap-3 sm:gap-5 text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+            <button onClick={onStartConverting} className="hover:text-white cursor-pointer">Converter</button>
+            <button onClick={onOpenDashboard} className="hover:text-white cursor-pointer">Dashboard</button>
+            <a href="#pipeline-stages" className="hover:text-white">Pipeline</a>
+            <a href="https://github.com/negiaryan19/py2java-transpiler" target="_blank" rel="noopener noreferrer" className="hover:text-white">
               GitHub
             </a>
+          </div>
+
+          <div className="flex items-center gap-2">
             {!authUser && (
-              <a href="/login" className="t-btn-secondary px-3 py-1.5">
+              <a href="/login" className="t-btn-secondary px-3 py-1.5 text-xs font-mono hidden sm:inline-block">
                 Sign In
               </a>
             )}
-            <button onClick={onStartConverting} className="t-btn-primary px-3.5 py-1.5 cursor-pointer">
-              Get Started
+            <button onClick={onStartConverting} className="t-btn-primary px-3.5 py-1.5 text-xs font-mono cursor-pointer">
+              Launch Studio
             </button>
           </div>
         </div>
 
-        {/* Hero Split Row matching Top-Left Screen */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <div className="space-y-5">
-            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight heading-font">
-              J-Forge
-              <br />
-              Python to Java,
-              <br />
-              <span
-                className="bg-clip-text text-transparent"
-                style={{ backgroundImage: 'linear-gradient(135deg, #A78BFA, var(--primary-bg), #60A5FA)' }}
-              >
-                Powered by AI
-              </span>
-            </h1>
-            <p className="text-sm sm:text-base max-w-lg leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              Convert, compile, verify, and inspect Python 3 code migrations into Java using deterministic AST rules, live CPython/OpenJDK verification, and AI diagnostics.
-            </p>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                onClick={onStartConverting}
-                className="t-btn-primary px-5 py-2.5 text-xs sm:text-sm font-mono inline-flex items-center gap-2 cursor-pointer"
-              >
-                <span>Start Converting</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onOpenDocs}
-                className="t-btn-secondary px-5 py-2.5 text-xs sm:text-sm font-mono inline-flex items-center gap-2 cursor-pointer"
-              >
-                <span>Explore Docs</span>
-              </button>
+        {/* Centered Headline matching Image 1 */}
+        <div className="text-center space-y-3 max-w-3xl mx-auto">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight leading-tight heading-font">
+            Convert with confidence,
+            <br />
+            verify with evidence.
+          </h1>
+          <p className="text-xs sm:text-sm font-mono tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+            Convert. Compile. Verify. Debug. Optimize. Learn. Migrate.
+          </p>
+        </div>
+
+        {/* Dual-Pane Architectural Preview Frame (Illustrative only; Launch Studio opens clean empty workspace) */}
+        <div className="t-surface overflow-hidden max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+            {/* Left Python Mock Frame */}
+            <div>
+              <div className="px-3.5 py-2 t-border-b flex items-center justify-between border-t-2 border-t-sky-400" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <PythonLogo className="w-4 h-4" />
+                  <span className="font-semibold">fibonacci.py</span>
+                </div>
+                <span className="text-[10px] font-mono text-sky-400">Python 3</span>
+              </div>
+              <pre className="p-4 text-xs font-mono leading-relaxed overflow-x-auto" style={{ backgroundColor: 'var(--bg-editor)' }}>
+                <span className="text-sky-400">def</span> <span className="text-amber-300">fibonacci</span>(n):{'\n'}
+                {'    '}<span className="text-sky-400">if</span> n &lt;= 1:{'\n'}
+                {'        '}<span className="text-sky-400">return</span> n{'\n'}
+                {'    '}<span className="text-sky-400">return</span> fibonacci(n - 1) + fibonacci(n - 2)
+              </pre>
+            </div>
+
+            {/* Right Java Mock Frame */}
+            <div>
+              <div className="px-3.5 py-2 t-border-b flex items-center justify-between border-t-2 border-t-orange-500" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+                <div className="flex items-center gap-2 text-xs font-mono">
+                  <JavaLogo className="w-4 h-4" />
+                  <span className="font-semibold">Fibonacci.java</span>
+                </div>
+                <span className="text-[10px] font-mono text-orange-400">OpenJDK 21</span>
+              </div>
+              <pre className="p-4 text-xs font-mono leading-relaxed overflow-x-auto" style={{ backgroundColor: 'var(--bg-editor)' }}>
+                <span className="text-orange-400">public class</span> Solution {'{\n'}
+                {'    '}<span className="text-orange-400">public static int</span> fib(<span className="text-sky-300">int</span> n) {'{\n'}
+                {'        '}<span className="text-orange-400">if</span> (n &lt;= 1) <span className="text-orange-400">return</span> n;{'\n'}
+                {'        '}<span className="text-orange-400">return</span> fib(n - 1) + fib(n - 2);{'\n'}
+                {'    }\n}'}
+              </pre>
             </div>
           </div>
 
-          {/* Right Visual Diagram Card: Python -> Java Pipeline */}
-          <div className="t-surface p-6 sm:p-8 flex items-center justify-center gap-4 sm:gap-6 relative overflow-hidden">
-            <div
-              className="p-5 rounded-xl t-subtle flex flex-col items-center gap-2 min-w-[115px]"
-              style={{ boxShadow: '0 0 28px rgba(245, 158, 11, 0.12)' }}
-            >
-              <span className="text-2xl font-mono font-bold text-amber-400">Py</span>
-              <span className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
-                Python 3
+          <div className="px-4 py-2.5 t-border-t flex flex-wrap items-center justify-between gap-2 text-xs font-mono" style={{ backgroundColor: 'var(--bg-subtle)' }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 inline-flex items-center gap-1.5 text-[11px]">
+                <CheckCircle2 className="w-3.5 h-3.5" /> OpenJDK 21 Compilation Verified
+              </span>
+              <span className="px-2.5 py-1 rounded-md border border-sky-500/30 bg-sky-500/10 text-sky-400 inline-flex items-center gap-1.5 text-[11px]">
+                <ShieldCheck className="w-3.5 h-3.5" /> CPython vs JVM Output Parity
               </span>
             </div>
-
-            <div className="flex flex-col items-center gap-1.5">
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white"
-                style={{ backgroundImage: 'linear-gradient(135deg, var(--primary-bg), var(--primary-hover))' }}
-              >
-                <ArrowLeftRight className="w-4 h-4" />
-              </div>
-              <span className="text-[10px] font-mono uppercase tracking-wider opacity-70">AST + AI</span>
-            </div>
-
-            <div
-              className="p-5 rounded-xl t-subtle flex flex-col items-center gap-2 min-w-[115px]"
-              style={{ boxShadow: '0 0 28px var(--primary-glow)' }}
-            >
-              <span className="text-2xl font-mono font-bold text-indigo-400">Java</span>
-              <span className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
-                OpenJDK 21
-              </span>
-            </div>
+            <button onClick={onStartConverting} className="t-btn-primary px-4 py-1.5 inline-flex items-center gap-1.5 cursor-pointer">
+              <span>Start Empty Studio</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
-        {/* Bottom 4 Real Feature Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
+        {/* 6-Stage Pipeline Overview inspired by Images 5 & 6 */}
+        <div id="pipeline-stages" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2">
           {[
-            {
-              icon: Zap,
-              title: 'AI-Powered Conversion',
-              desc: 'Configurable modes, semantic AST fallbacks, and selection conversion.',
-            },
-            {
-              icon: ShieldCheck,
-              title: 'Live Execution & Verify',
-              desc: 'Side-by-side CPython 3.13 & OpenJDK 21 verification with max-3 javac repair.',
-            },
-            {
-              icon: BarChart3,
-              title: 'Static Analysis',
-              desc: 'Pre-conversion compatibility checks, dependency mapping & quality audit.',
-            },
-            {
-              icon: Layout,
-              title: 'Developer Studio UI',
-              desc: 'Resizable split editor, keyboard shortcuts, command palette & passport export.',
-            },
-          ].map((feat) => {
-            const Icon = feat.icon;
+            { step: 'Stage 1', title: 'Python AST', desc: 'Compatibility & types', icon: Layers },
+            { step: 'Stage 2', title: 'AI Engine', desc: 'Mode-guided synthesis', icon: Cpu },
+            { step: 'Stage 3', title: 'OpenJDK javac', desc: 'Real byte-code check', icon: Terminal },
+            { step: 'Stage 4', title: 'Sandbox Run', desc: 'Isolated CPython & JVM', icon: Play },
+            { step: 'Stage 5', title: 'Verification', desc: 'Multi-case output diff', icon: FlaskConical },
+            { step: 'Stage 6', title: 'Auto-Repair', desc: 'Up to 3 javac fixes', icon: Wrench },
+          ].map((st) => {
+            const Icon = st.icon;
             return (
-              <div key={feat.title} className="t-surface p-4 space-y-2">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
-                  style={{ backgroundImage: 'linear-gradient(135deg, var(--primary-bg), var(--primary-hover))' }}
-                >
-                  <Icon className="w-4 h-4" />
+              <div key={st.step} className="t-surface p-3 space-y-1">
+                <div className="flex items-center justify-between text-[10px] font-mono text-orange-400">
+                  <span>{st.step}</span>
+                  <Icon className="w-3.5 h-3.5 text-sky-400" />
                 </div>
-                <h3 className="text-xs font-semibold">{feat.title}</h3>
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  {feat.desc}
-                </p>
+                <div className="text-xs font-semibold">{st.title}</div>
+                <div className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{st.desc}</div>
               </div>
             );
           })}
@@ -184,171 +156,237 @@ export function LandingHeroView({
   );
 }
 
+function MiniSparkline({ points = [], stroke = '#38BDF8' }) {
+  const safePts = points.length >= 2 ? points : [2, 2];
+  const max = Math.max(...safePts, 1);
+  const w = 84;
+  const h = 28;
+  const coords = safePts.map((v, idx) => {
+    const x = (idx / Math.max(1, safePts.length - 1)) * w;
+    const y = h - 4 - (v / max) * (h - 8);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-20 h-7 overflow-visible" aria-hidden="true">
+      <polyline
+        fill="none"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={coords.join(' ')}
+      />
+    </svg>
+  );
+}
+
 /**
- * Screen 3: Dashboard View matching Top-Right Panel (100% Real Telemetry, Zero Fake KPIs)
+ * Screen 3: Project Migration Dashboard matching Image 3 (Strict Real Metrics Only)
  */
 export function DashboardWorkspaceView({
   authUser = null,
   history = [],
   workspaceFiles = [],
   verificationReport = null,
+  guestRemaining = 3,
   onNewConversion = () => {},
   onOpenStudio = () => {},
   onOpenAssistant = () => {},
   onOpenHistory = () => {},
-  onOpenAnalysis = () => {},
   onRestoreHistory = () => {},
 }) {
   const totalSaved = history.length;
-  const verifiedItems = history.filter((h) => h.verifiedStatus);
-  const matchedItems = history.filter((h) => h.verifiedStatus === 'behavioral_match');
-  const latestPassLabel = verificationReport
-    ? `${verificationReport.passedCases}/${verificationReport.totalCases}`
-    : 'Not Run';
+  const verifiedEntries = history.filter((h) => h.verifiedStatus);
+  const matchedEntries = history.filter((h) => h.verifiedStatus === 'behavioral_match');
+  const compiledEntries = history.filter(
+    (h) => h.verifiedStatus === 'behavioral_match' || h.verifiedStatus === 'behavioral_mismatch'
+  );
 
-  // Plot simple honest SVG points strictly from existing saved history items
-  const chartPoints = history.slice(0, 7).reverse();
+  const compilationRate =
+    verifiedEntries.length > 0
+      ? `${Math.round((compiledEntries.length / verifiedEntries.length) * 100)}%`
+      : verificationReport
+      ? verificationReport.compilationPassed
+        ? '100%'
+        : '0%'
+      : '—';
+
+  const verifiedRate =
+    verifiedEntries.length > 0
+      ? `${Math.round((matchedEntries.length / verifiedEntries.length) * 100)}%`
+      : verificationReport?.totalCases > 0
+      ? `${Math.round((verificationReport.passedCases / verificationReport.totalCases) * 100)}%`
+      : '—';
+
+  const sparkData = history.slice(0, 8).reverse().map((h) => Math.max(1, (h.pythonCode || '').split('\n').length));
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight heading-font">Dashboard</h1>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {authUser ? `Welcome back, ${authUser.name || authUser.email}` : 'Workspace metrics computed directly from your saved sessions and sandbox runs'}
-          </p>
+          <div className="text-xs font-mono text-orange-400">J-FORGE V2 / Project Migration Studio</div>
+          <h1 className="text-xl font-bold tracking-tight heading-font">Overview Dashboard</h1>
         </div>
-        <button onClick={onNewConversion} className="t-btn-primary px-3.5 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer">
-          <Plus className="w-3.5 h-3.5" />
-          <span>New Conversion</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onOpenAssistant} className="t-btn-secondary px-3 py-1.5 text-xs font-mono cursor-pointer">
+            AI Assistant
+          </button>
+          <button onClick={onNewConversion} className="t-btn-primary px-3.5 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer">
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Conversion</span>
+          </button>
+        </div>
       </div>
 
-      {/* 4 Honest KPI Cards */}
+      {/* Top 4 KPI Cards matching Image 3 Layout + Sparklines */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="t-surface p-4 space-y-1">
-          <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Saved Conversions</div>
-          <div className="text-2xl font-bold font-mono">{totalSaved}</div>
-          <div className="text-[11px] opacity-70">{authUser ? 'Account + local history' : 'Stored locally on device'}</div>
+        <div className="t-surface p-4 flex items-center justify-between gap-2">
+          <div className="space-y-1">
+            <div className="text-[10px] font-mono uppercase tracking-wider opacity-65">Total Conversions</div>
+            <div className="text-2xl font-bold font-mono text-sky-400">{totalSaved}</div>
+            <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded t-subtle opacity-80">
+              {workspaceFiles.length} open buffer(s)
+            </span>
+          </div>
+          <MiniSparkline points={sparkData} stroke="#38BDF8" />
         </div>
-        <div className="t-surface p-4 space-y-1">
-          <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Verified Matches</div>
-          <div className="text-2xl font-bold font-mono text-emerald-400">{matchedItems.length}</div>
-          <div className="text-[11px] opacity-70">Out of {verifiedItems.length} verified entry(s)</div>
+
+        <div className="t-surface p-4 flex items-center justify-between gap-2">
+          <div className="space-y-1">
+            <div className="text-[10px] font-mono uppercase tracking-wider opacity-65">Compilation Success</div>
+            <div className="text-2xl font-bold font-mono text-emerald-400">{compilationRate}</div>
+            <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded t-subtle opacity-80">
+              OpenJDK 21 javac
+            </span>
+          </div>
+          <MiniSparkline points={sparkData.map((x, i) => (compiledEntries[i] ? 10 : x))} stroke="#34D399" />
         </div>
-        <div className="t-surface p-4 space-y-1">
-          <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Workspace Tabs</div>
-          <div className="text-2xl font-bold font-mono">{workspaceFiles.length}</div>
-          <div className="text-[11px] opacity-70">Active conversion buffers</div>
+
+        <div className="t-surface p-4 flex items-center justify-between gap-2">
+          <div className="space-y-1">
+            <div className="text-[10px] font-mono uppercase tracking-wider opacity-65">Verified Output Match</div>
+            <div className="text-2xl font-bold font-mono text-sky-400">{verifiedRate}</div>
+            <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded t-subtle opacity-80">
+              {verifiedEntries.length} verified run(s)
+            </span>
+          </div>
+          <MiniSparkline points={sparkData} stroke="#38BDF8" />
         </div>
-        <div className="t-surface p-4 space-y-1">
-          <div className="text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>Latest Verification</div>
-          <div className="text-2xl font-bold font-mono text-indigo-400">{latestPassLabel}</div>
-          <div className="text-[11px] opacity-70">{verificationReport ? verificationReport.status : 'Run Convert & Verify'}</div>
+
+        <div className="t-surface p-4 space-y-2">
+          <div className="text-[10px] font-mono uppercase tracking-wider opacity-65">
+            {authUser ? 'Account Quota' : 'Guest Trial Quota'}
+          </div>
+          <div className="text-2xl font-bold font-mono text-orange-400">
+            {authUser ? 'Active' : `${guestRemaining} / 3`}
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-orange-500 transition-all"
+              style={{ width: authUser ? '100%' : `${Math.round((guestRemaining / 3) * 100)}%` }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Activity Sparkline + Quick Actions Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="t-surface p-4 lg:col-span-2 space-y-3">
+      {/* Bottom Two Columns matching Image 3: Migration Mapping Matrix + Recent Verification History */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Left: Static Structural Migration Architecture Reference */}
+        <div className="t-surface p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Saved Activity (Latest {chartPoints.length} Runs)</h2>
-            <span className="text-[11px] font-mono opacity-65">Line count per conversion</span>
+            <h2 className="text-sm font-semibold">Python → Java Architecture Mapping</h2>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded t-subtle opacity-75">Supported Targets</span>
           </div>
-          {chartPoints.length === 0 ? (
-            <div className="h-40 flex items-center justify-center text-xs font-mono t-subtle" style={{ color: 'var(--text-secondary)' }}>
-              No conversions saved yet — convert a Python file to record activity here.
+
+          <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+            <div className="p-2.5 t-subtle flex items-center gap-2">
+              <PythonLogo className="w-4 h-4 shrink-0" />
+              <span>Python 3 / FastAPI</span>
+            </div>
+            <div className="p-2.5 t-subtle flex items-center gap-2">
+              <JavaLogo className="w-4 h-4 shrink-0" />
+              <span>Java 21 / Spring Boot</span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 text-xs font-mono">
+            {[
+              ['main.py (script/entry)', 'Solution.java (public static void main)'],
+              ['models.py (Pydantic / dataclass)', 'Java Record / Encapsulated POJO'],
+              ['routes.py (@app.get / @app.post)', 'Spring @RestController Mapping'],
+              ['requirements.txt / imports', 'Dependency Catalog & Maven XML'],
+            ].map(([src, dst]) => (
+              <div key={src} className="p-2.5 rounded t-subtle grid grid-cols-11 items-center gap-2 text-[11px]">
+                <span className="col-span-5 truncate opacity-90">{src}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-orange-400 mx-auto" />
+                <span className="col-span-5 truncate text-emerald-400">{dst}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Recent Verification History Table */}
+        <div className="t-surface p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Recent Verification History</h2>
+            <button onClick={onOpenHistory} className="text-xs font-mono text-orange-400 hover:underline cursor-pointer">
+              Manage All →
+            </button>
+          </div>
+
+          {history.length === 0 ? (
+            <div className="p-8 text-center t-subtle text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+              No conversions recorded yet. Open Converter to compile &amp; verify your first script.
             </div>
           ) : (
-            <div className="h-40 p-3 t-subtle flex items-end gap-3">
-              {chartPoints.map((pt, idx) => {
-                const lines = (pt.pythonCode || '').split('\n').length;
-                const heightPct = Math.min(100, Math.max(18, lines * 4));
+            <div className="space-y-1.5 text-xs font-mono">
+              <div className="grid grid-cols-12 px-2 py-1 text-[10px] uppercase opacity-55">
+                <span className="col-span-5">Project</span>
+                <span className="col-span-3">Time</span>
+                <span className="col-span-4 text-right">Status</span>
+              </div>
+              {history.slice(0, 6).map((item) => {
+                const st = item.verifiedStatus;
+                const badgeCls =
+                  st === 'behavioral_match'
+                    ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                    : st === 'behavioral_mismatch'
+                    ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                    : st
+                    ? 'bg-sky-500/15 text-sky-400 border-sky-500/30'
+                    : 'bg-slate-500/15 text-slate-400 border-slate-500/30';
                 return (
-                  <div key={pt.id || idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                    <span className="text-[10px] font-mono opacity-70">{lines}L</span>
-                    <div
-                      className="w-full max-w-[36px] rounded-t-md transition-all"
-                      style={{
-                        height: `${heightPct}%`,
-                        backgroundImage: 'linear-gradient(180deg, var(--primary-bg), var(--primary-hover))',
-                      }}
-                      title={`${pt.label}: ${lines} lines`}
-                    />
-                    <span className="text-[10px] font-mono truncate max-w-[60px] opacity-75">{pt.time || `#${idx + 1}`}</span>
-                  </div>
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onRestoreHistory(item);
+                      onOpenStudio();
+                    }}
+                    className="w-full p-2.5 t-subtle grid grid-cols-12 items-center gap-2 text-left hover:border-orange-500/40 cursor-pointer"
+                  >
+                    <span className="col-span-5 flex items-center gap-1.5 truncate font-medium">
+                      <PythonLogo className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </span>
+                    <span className="col-span-3 text-[11px] opacity-70 truncate">{item.time}</span>
+                    <span className="col-span-4 text-right">
+                      <span className={`text-[10px] px-2 py-0.5 rounded border ${badgeCls}`}>
+                        {st === 'behavioral_match' ? 'Verified Match' : st || 'Saved'}
+                      </span>
+                    </span>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
-
-        <div className="t-surface p-4 space-y-2.5">
-          <h2 className="text-sm font-semibold">Quick Actions</h2>
-          <div className="space-y-2 text-xs font-mono">
-            {[
-              { label: 'New Conversion', icon: Plus, run: onNewConversion },
-              { label: 'Open AI Assistant', icon: Sparkles, run: onOpenAssistant },
-              { label: 'View Projects & History', icon: History, run: onOpenHistory },
-              { label: 'Analyze Code Quality', icon: BarChart3, run: onOpenAnalysis },
-            ].map((act) => {
-              const Icon = act.icon;
-              return (
-                <button
-                  key={act.label}
-                  onClick={act.run}
-                  className="w-full p-2.5 t-btn-secondary flex items-center justify-between cursor-pointer"
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{act.label}</span>
-                  </span>
-                  <ArrowRight className="w-3.5 h-3.5 opacity-60" />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Projects Strip */}
-      <div className="t-surface p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Recent Conversions</h2>
-          <button onClick={onOpenHistory} className="text-xs font-mono text-indigo-400 hover:underline cursor-pointer">
-            View all →
-          </button>
-        </div>
-        {history.length === 0 ? (
-          <p className="text-xs font-mono opacity-70">No recent conversions saved yet.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {history.slice(0, 4).map((item) => (
-              <div key={item.id} className="p-3 t-subtle flex items-center justify-between gap-2 text-xs font-mono">
-                <div className="min-w-0">
-                  <div className="font-semibold truncate">{item.label}</div>
-                  <div className="text-[11px] opacity-65">{item.javaTargetVersion || 'Java 21 LTS'} · {item.time}</div>
-                </div>
-                <button
-                  onClick={() => {
-                    onRestoreHistory(item);
-                    onOpenStudio();
-                  }}
-                  className="t-btn-primary px-2.5 py-1 text-[11px] cursor-pointer shrink-0"
-                >
-                  Open
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 /**
- * Screen 6: Dedicated Verification Studio View matching Middle-Right Panel
+ * Screen 6: Dedicated Verification Studio View
  */
 export function VerificationStudioView({
   pythonCode = '',
@@ -387,7 +425,7 @@ export function VerificationStudioView({
         <div>
           <h1 className="text-xl font-bold tracking-tight heading-font">Verification Studio</h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Compile, run, and compare real CPython 3.13 vs OpenJDK 21 behavioral execution
+            Compile, execute, and compare CPython 3.13 vs OpenJDK 21 behavioral outputs
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs font-mono">
@@ -399,17 +437,13 @@ export function VerificationStudioView({
             <Play className="w-3.5 h-3.5" />
             <span>{isVerifying ? 'Running...' : 'Run Again'}</span>
           </button>
-          <button
-            onClick={handleDownloadPassport}
-            className="t-btn-primary px-3 py-1.5 flex items-center gap-1.5 cursor-pointer"
-          >
+          <button onClick={handleDownloadPassport} className="t-btn-primary px-3 py-1.5 flex items-center gap-1.5 cursor-pointer">
             <Download className="w-3.5 h-3.5" />
             <span>Download Report</span>
           </button>
         </div>
       </div>
 
-      {/* Sub-tabs */}
       <div className="flex gap-1 p-1 t-subtle w-fit text-xs font-mono">
         {[
           ['execution', 'Execution'],
@@ -429,7 +463,6 @@ export function VerificationStudioView({
         ))}
       </div>
 
-      {/* Execution Summary Banner */}
       <div
         className={`t-surface p-4 flex flex-wrap items-center justify-between gap-3 ${
           !hasReport
@@ -453,8 +486,8 @@ export function VerificationStudioView({
             </div>
             <div className="text-xs font-mono opacity-75">
               {hasReport
-                ? `Python: ${verificationReport.python?.executionTimeMs ?? 0}ms · Java: ${verificationReport.java?.executionTimeMs ?? 0}ms`
-                : 'Click "Run Again" after converting Python code to execute in isolated containers.'}
+                ? `Python sandbox RTT: ${verificationReport.python?.executionTimeMs ?? 0}ms · Java sandbox RTT: ${verificationReport.java?.executionTimeMs ?? 0}ms`
+                : 'Convert Python code and click "Run Again" to execute in isolated containers.'}
             </div>
           </div>
         </div>
@@ -464,31 +497,30 @@ export function VerificationStudioView({
             disabled={isRepairing}
             className="t-btn-secondary px-3 py-1.5 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
           >
-            <Wrench className="w-3.5 h-3.5 text-amber-400" />
+            <Wrench className="w-3.5 h-3.5 text-orange-400" />
             <span>{isRepairing ? 'Repairing...' : 'Auto-Repair (Max 3x)'}</span>
           </button>
         )}
       </div>
 
-      {/* Main Content by Sub-tab */}
       {subTab === 'execution' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
           <div className="t-surface p-4 space-y-2">
-            <div className="text-xs opacity-70">Python Output (CPython 3.13)</div>
+            <div className="text-xs flex items-center gap-1.5"><PythonLogo className="w-3.5 h-3.5" /> Python Output (CPython 3.13)</div>
             <pre className="text-sm font-semibold whitespace-pre-wrap p-3 rounded t-subtle min-h-[84px]">
               {verificationReport?.python?.stdout || verificationReport?.python?.stderr || 'Not executed'}
             </pre>
           </div>
           <div className="t-surface p-4 space-y-2">
-            <div className="text-xs opacity-70">Java Output (OpenJDK 21)</div>
+            <div className="text-xs flex items-center gap-1.5"><JavaLogo className="w-3.5 h-3.5" /> Java Output (OpenJDK 21)</div>
             <pre className="text-sm font-semibold whitespace-pre-wrap p-3 rounded t-subtle min-h-[84px]">
               {verificationReport?.java?.stdout || verificationReport?.java?.stderr || 'Not executed'}
             </pre>
           </div>
           <div className="t-surface p-4 space-y-2">
-            <div className="text-xs opacity-70">Compilation Status (`javac`)</div>
+            <div className="text-xs flex items-center gap-1.5"><Server className="w-3.5 h-3.5 text-emerald-400" /> Compilation Log (`javac`)</div>
             <div className="p-3 rounded t-subtle min-h-[84px] text-xs space-y-1.5">
-              <div className="font-semibold flex items-center gap-1.5">
+              <div className="font-semibold">
                 {compiledCleanly ? (
                   <span className="text-emerald-400">✓ Clean Compilation (0 errors)</span>
                 ) : hasReport ? (
@@ -498,9 +530,7 @@ export function VerificationStudioView({
                 )}
               </div>
               {verificationReport?.repairedAttempts?.length > 0 && (
-                <div className="opacity-75">
-                  Auto-repair attempts: {verificationReport.repairedAttempts.length}
-                </div>
+                <div className="opacity-75">Auto-repair passes: {verificationReport.repairedAttempts.length}</div>
               )}
             </div>
           </div>
@@ -509,21 +539,23 @@ export function VerificationStudioView({
 
       {subTab === 'cases' && (
         <div className="t-surface p-4 space-y-2 text-xs font-mono">
-          <div className="flex items-center justify-between pb-2 t-border-b">
-            <span>Executed Test Cases</span>
-            <strong>{verificationReport ? `${verificationReport.passedCases}/${verificationReport.totalCases} Passed` : '0/0'}</strong>
+          <div className="grid grid-cols-12 px-2 py-1 text-[10px] uppercase opacity-60 t-border-b">
+            <span className="col-span-3">Boundary Test Case</span>
+            <span className="col-span-4">Python stdout</span>
+            <span className="col-span-4">Java stdout</span>
+            <span className="col-span-1 text-right">Status</span>
           </div>
           {Array.isArray(verificationReport?.cases) && verificationReport.cases.length > 0 ? (
             verificationReport.cases.map((c, idx) => (
-              <div key={idx} className="p-2.5 t-subtle grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div><strong>{c.name}</strong> · stdin: {JSON.stringify(c.stdin || '')}</div>
-                <div>Python: {c.pythonStdout || '(empty)'}</div>
-                <div className="flex items-center justify-between">
-                  <span>Java: {c.javaStdout || c.compilerError || '(empty)'}</span>
-                  <span className={c.matched ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+              <div key={idx} className="p-2.5 t-subtle grid grid-cols-12 items-center gap-2">
+                <span className="col-span-3 font-semibold truncate">{c.name}</span>
+                <span className="col-span-4 truncate">{c.pythonStdout || '(empty)'}</span>
+                <span className="col-span-4 truncate">{c.javaStdout || c.compilerError || '(empty)'}</span>
+                <span className="col-span-1 text-right">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${c.matched ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                     {c.matched ? 'PASS' : 'DIFF'}
                   </span>
-                </div>
+                </span>
               </div>
             ))
           ) : (
@@ -558,7 +590,7 @@ export function VerificationStudioView({
 }
 
 /**
- * Screen 5: Dedicated Full-Workspace AI Assistant View matching Middle-Center Panel
+ * Screen 5: Dedicated Full-Workspace AI Assistant View
  */
 export function AssistantWorkspaceView({
   pythonCode = '',
@@ -621,21 +653,20 @@ export function AssistantWorkspaceView({
       <div>
         <h1 className="text-xl font-bold tracking-tight heading-font">AI Assistant</h1>
         <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          Context-aware Python-to-Java companion grounded in your current editors &amp; diagnostics
+          Context-aware Python-to-Java companion grounded in your current workspace editors
         </p>
       </div>
 
-      {/* Chat Transcript Card */}
       <div className="t-surface flex-1 p-4 space-y-4 overflow-y-auto flex flex-col justify-between">
         <div className="space-y-3">
           {!pythonCode.trim() && (
             <div className="p-3 rounded t-subtle text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
-              Tip: Add or paste Python code in Conversion Studio first so AI Assistant has source context.
+              Tip: Add or paste Python code in Converter first so AI Assistant has source context.
             </div>
           )}
           {messages.length === 0 ? (
             <div className="py-10 text-center space-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <Sparkles className="w-6 h-6 mx-auto text-indigo-400" />
+              <Sparkles className="w-6 h-6 mx-auto text-orange-400" />
               <p className="font-medium text-sm" style={{ color: 'var(--text-main)' }}>Ask anything about your conversion</p>
               <p>Inspect type decisions, debug `javac` failures, optimize streams, or generate JUnit tests.</p>
             </div>
@@ -664,16 +695,15 @@ export function AssistantWorkspaceView({
           )}
           {loading && (
             <div className="flex items-center gap-2 text-xs opacity-75">
-              <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+              <Loader2 className="w-4 h-4 animate-spin text-orange-400" />
               <span>Analyzing Python &amp; Java context...</span>
             </div>
           )}
         </div>
 
-        {/* Apply Pending Code Bar */}
         {pendingCode && (
-          <div className="p-3 rounded t-subtle border border-indigo-500/40 flex items-center justify-between text-xs font-mono">
-            <span>Apply suggested Java update from `{pendingCode.action}` to Conversion Studio?</span>
+          <div className="p-3 rounded t-subtle border border-orange-500/40 flex items-center justify-between text-xs font-mono">
+            <span>Apply suggested Java update from `{pendingCode.action}` to Converter?</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -692,7 +722,6 @@ export function AssistantWorkspaceView({
           </div>
         )}
 
-        {/* Contextual Chip Bar + Rounded Composer */}
         <div className="space-y-2.5 pt-3 t-border-t">
           <div className="flex flex-wrap gap-1.5 text-xs font-mono">
             {[
@@ -739,6 +768,130 @@ export function AssistantWorkspaceView({
               <Send className="w-4 h-4" />
             </button>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Section 25: Student Learning Mode (Concept Explanations + Syntax & Semantic Comparison)
+ */
+const LEARNING_TOPICS = [
+  {
+    id: 'division',
+    title: 'Integer Division & Modulo Semantics',
+    level: 'Fundamentals',
+    whyDiffers: 'Python // rounds toward negative infinity (-7 // 2 == -4), whereas Java / truncates toward zero (-7 / 2 == -3). Use Math.floorDiv() and Math.floorMod() when behavior parity matters.',
+    pyExample: 'q = -7 // 2\nr = -7 % 2\nprint(q, r)',
+    javaExample: 'int q = Math.floorDiv(-7, 2);\nint r = Math.floorMod(-7, 2);\nSystem.out.println(q + " " + r);',
+  },
+  {
+    id: 'types',
+    title: 'Dynamic Types vs Static Types & BigInteger',
+    level: 'Types & Memory',
+    whyDiffers: 'Python ints have arbitrary precision; Java primitive int overflows above 2,147,483,647. Use long or java.math.BigInteger for large factorials and cryptographic arithmetic.',
+    pyExample: 'n: int = 30\nfact = 1\nfor i in range(1, n + 1):\n    fact *= i\nprint(fact)',
+    javaExample: 'BigInteger fact = BigInteger.ONE;\nfor (int i = 1; i <= 30; i++) {\n    fact = fact.multiply(BigInteger.valueOf(i));\n}\nSystem.out.println(fact);',
+  },
+  {
+    id: 'collections',
+    title: 'Lists, Dicts & Java Streams',
+    level: 'Data Structures',
+    whyDiffers: 'Python list comprehensions map to Java Streams (.stream().filter().map().toList()), and dict lookups with defaults map to Map.getOrDefault().',
+    pyExample: 'nums = [1, 2, 3, 4]\nevens = [x * 2 for x in nums if x % 2 == 0]\nprint(evens)',
+    javaExample: 'List<Integer> nums = List.of(1, 2, 3, 4);\nList<Integer> evens = nums.stream().filter(x -> x % 2 == 0).map(x -> x * 2).toList();\nSystem.out.println(evens);',
+  },
+  {
+    id: 'oop',
+    title: 'Classes, __init__ & Encapsulation',
+    level: 'OOP',
+    whyDiffers: 'Python constructor parameters on self become private Java class fields initialized inside a strongly typed constructor with explicit visibility modifiers.',
+    pyExample: 'class Counter:\n    def __init__(self, start: int = 0):\n        self.value = start\n    def inc(self) -> int:\n        self.value += 1\n        return self.value',
+    javaExample: 'public static class Counter {\n    private int value;\n    public Counter(int start) { this.value = start; }\n    public int inc() { return ++this.value; }\n}',
+  },
+  {
+    id: 'exceptions',
+    title: 'Exceptions & Input Validation',
+    level: 'Error Handling',
+    whyDiffers: 'Python try/except ValueError maps to Java try/catch (IllegalArgumentException e), enforcing checked vs unchecked exception contracts at compile time.',
+    pyExample: 'def check(age: int):\n    if age < 0:\n        raise ValueError("Invalid age")',
+    javaExample: 'public static void check(int age) {\n    if (age < 0) throw new IllegalArgumentException("Invalid age");\n}',
+  },
+];
+
+export function LearningWorkspaceView({
+  onLoadExerciseToStudio = () => {},
+}) {
+  const [selectedId, setSelectedId] = useState('division');
+  const activeTopic = LEARNING_TOPICS.find((t) => t.id === selectedId) || LEARNING_TOPICS[0];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight heading-font">Learning Studio</h1>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            Interactive Python-to-Java language guide explaining why Java types, operators, and libraries differ
+          </p>
+        </div>
+        <button
+          onClick={() => onLoadExerciseToStudio(activeTopic)}
+          className="t-btn-primary px-3.5 py-2 text-xs font-mono flex items-center gap-1.5 cursor-pointer"
+        >
+          <span>Practice in Converter</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Topic Selector */}
+        <div className="t-surface p-2.5 space-y-1.5">
+          {LEARNING_TOPICS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedId(t.id)}
+              className={`w-full text-left p-2.5 rounded text-xs cursor-pointer transition ${
+                t.id === selectedId ? 'nav-item active' : 'nav-item'
+              }`}
+            >
+              <div className="font-semibold">{t.title}</div>
+              <div className="text-[10px] font-mono opacity-75">{t.level}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Interactive Concept Card */}
+        <div className="lg:col-span-3 t-surface p-5 space-y-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded t-subtle text-orange-400">{activeTopic.level}</span>
+            <h2 className="text-base font-bold heading-font pt-1">{activeTopic.title}</h2>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              {activeTopic.whyDiffers}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+            <div className="t-subtle overflow-hidden">
+              <div className="px-3 py-1.5 t-border-b border-t-2 border-t-sky-400 flex items-center gap-1.5">
+                <PythonLogo className="w-3.5 h-3.5" />
+                <span>Python 3 Equivalent</span>
+              </div>
+              <pre className="p-3 overflow-x-auto leading-relaxed" style={{ backgroundColor: 'var(--bg-editor)' }}>
+                {activeTopic.pyExample}
+              </pre>
+            </div>
+
+            <div className="t-subtle overflow-hidden">
+              <div className="px-3 py-1.5 t-border-b border-t-2 border-t-orange-500 flex items-center gap-1.5">
+                <JavaLogo className="w-3.5 h-3.5" />
+                <span>Java LTS Target</span>
+              </div>
+              <pre className="p-3 overflow-x-auto leading-relaxed" style={{ backgroundColor: 'var(--bg-editor)' }}>
+                {activeTopic.javaExample}
+              </pre>
+            </div>
+          </div>
         </div>
       </div>
     </div>

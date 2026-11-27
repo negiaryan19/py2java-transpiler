@@ -8,10 +8,10 @@ import {
   ShieldCheck,
   BarChart3,
   FolderKanban,
+  FolderCode,
   GitCompare,
   FlaskConical,
   Settings,
-  BookOpen,
   Terminal,
   Search,
   Sun,
@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Bell,
+  GraduationCap,
 } from 'lucide-react';
 import BrandMark from './BrandMark';
 
@@ -38,16 +39,21 @@ export default function Navigation({
   return (
     <header
       className="h-12 px-3 sm:px-4 t-border-b flex items-center justify-between sticky top-0 z-30 shrink-0 backdrop-blur-md"
-      style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 88%, transparent)' }}
+      style={{ backgroundColor: 'color-mix(in srgb, var(--bg-surface) 92%, transparent)' }}
     >
       {/* Left: Brand Identity */}
-      <button
-        onClick={onOpenHome}
-        className="flex items-center cursor-pointer hover:opacity-90 transition"
-        title="J-Forge Welcome & Overview"
-      >
-        <BrandMark size="md" subtitle="Studio" />
-      </button>
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={onOpenHome}
+          className="flex items-center cursor-pointer hover:opacity-90 transition shrink-0"
+          title="J-Forge V2 Home"
+        >
+          <BrandMark size="md" showV2 />
+        </button>
+        <span className="hidden md:inline text-xs font-mono truncate pl-3 t-border-l" style={{ color: 'var(--text-secondary)' }}>
+          Dual-Pane Code Migration &amp; Verification Workspace
+        </span>
+      </div>
 
       {/* Right: Utility Controls */}
       <div className="flex items-center gap-1.5">
@@ -74,7 +80,7 @@ export default function Navigation({
           {verificationReport && (
             <span
               className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
-                verificationReport.outputMatch ? 'bg-emerald-400' : 'bg-amber-400'
+                verificationReport.outputMatch ? 'bg-emerald-400' : 'bg-orange-400'
               }`}
             />
           )}
@@ -143,21 +149,25 @@ export default function Navigation({
   );
 }
 
-const PRIMARY_NAV = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, tip: 'Workspace Dashboard' },
-  { id: 'studio', label: 'Conversion Studio', icon: ArrowLeftRight, tip: 'Python to Java Converter' },
-  { id: 'assistant', label: 'AI Assistant', icon: Sparkles, tip: 'Context-Aware AI Assistant' },
-  { id: 'verification', label: 'Verification Studio', icon: ShieldCheck, tip: 'Compile, Run & Verify' },
-  { id: 'analysis', label: 'Code Analysis', icon: BarChart3, tip: 'Compatibility, Dependencies & Quality' },
-  { id: 'history', label: 'Projects & History', icon: FolderKanban, tip: 'Saved Projects & Workspace Files' },
+const WORKSPACE_NAV = [
+  { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, tip: 'Project Migration Dashboard' },
+  { id: 'studio', label: 'Converter', icon: ArrowLeftRight, tip: 'Dual-Pane Code Migration' },
+  { id: 'files', label: 'Projects', icon: FolderCode, tip: 'Workspace Buffers' },
+  { id: 'verification', label: 'Verification', icon: ShieldCheck, tip: 'Semantic Verification Engine' },
   { id: 'tests', label: 'Unit Tests', icon: FlaskConical, tip: 'JUnit 5 Generator' },
-  { id: 'comparison', label: 'AST Diff', icon: GitCompare, tip: 'Python vs Java Structural Diff' },
+  { id: 'comparison', label: 'AST Explorer', icon: GitCompare, tip: 'AST Diff & Mapping' },
+  { id: 'analysis', label: 'Code Analysis', icon: BarChart3, tip: 'Compatibility & Quality' },
+  { id: 'history', label: 'History', icon: FolderKanban, tip: 'Saved History & Versions' },
 ];
 
-const SECONDARY_NAV = [
+const INTELLIGENCE_NAV = [
+  { id: 'assistant', label: 'AI Assistant', icon: Sparkles, tip: 'Context-Aware AI Assistant' },
+  { id: 'learning', label: 'Learning Studio', icon: GraduationCap, tip: 'Python-to-Java Concept Guide & Practice' },
+];
+
+const DEVELOPER_NAV = [
   { id: 'playground', label: 'API Gateway', icon: Terminal, tip: 'REST API & Webhooks' },
-  { id: 'docs', label: 'Documentation', icon: BookOpen, tip: 'Documentation' },
-  { id: 'settings', label: 'Settings', icon: Settings, tip: 'Appearance, Editor & Preferences' },
+  { id: 'settings', label: 'Settings', icon: Settings, tip: 'Appearance & Defaults' },
 ];
 
 export function SidebarRail({
@@ -168,6 +178,32 @@ export function SidebarRail({
 }) {
   const [hoverLabel, setHoverLabel] = useState(null);
 
+  const renderGroup = (items) =>
+    items.map((item) => {
+      const Icon = item.icon;
+      const active = activeView === item.id;
+      return (
+        <button
+          key={item.id}
+          onClick={() => setActiveView(item.id)}
+          onMouseEnter={() => setHoverLabel(item.id)}
+          onMouseLeave={() => setHoverLabel(null)}
+          title={item.tip}
+          className={`nav-item relative px-2.5 py-2 text-xs flex items-center gap-2.5 shrink-0 cursor-pointer ${
+            active ? 'active' : ''
+          } ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
+        >
+          <Icon className="w-4 h-4 shrink-0" />
+          {!collapsed && <span className="truncate font-medium">{item.label}</span>}
+          {collapsed && hoverLabel === item.id && (
+            <span className="hidden lg:block absolute left-14 z-50 px-2.5 py-1 text-[11px] font-mono rounded t-surface whitespace-nowrap shadow-xl pointer-events-none">
+              {item.label}
+            </span>
+          )}
+        </button>
+      );
+    });
+
   return (
     <aside
       className={`t-border-r shrink-0 flex flex-row lg:flex-col justify-between transition-all duration-150 ${
@@ -175,53 +211,34 @@ export function SidebarRail({
       }`}
       style={{ backgroundColor: 'var(--bg-surface)' }}
     >
-      {/* Primary Navigation matching Showcase Sidebar */}
-      <div className="p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible flex-1">
-        {PRIMARY_NAV.map((item) => {
-          const Icon = item.icon;
-          const active = activeView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              onMouseEnter={() => setHoverLabel(item.id)}
-              onMouseLeave={() => setHoverLabel(null)}
-              title={item.tip}
-              className={`nav-item relative px-2.5 py-2 text-xs flex items-center gap-2.5 shrink-0 cursor-pointer ${
-                active ? 'active' : ''
-              } ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {!collapsed && <span className="truncate font-medium">{item.label}</span>}
-              {collapsed && hoverLabel === item.id && (
-                <span className="hidden lg:block absolute left-14 z-50 px-2.5 py-1 text-[11px] font-mono rounded t-surface whitespace-nowrap shadow-xl pointer-events-none">
-                  {item.label}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="p-2 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-visible flex-1">
+        <div className="flex lg:flex-col gap-1">
+          {!collapsed && (
+            <div className="px-2.5 pb-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider opacity-50 hidden lg:block">
+              Workspace
+            </div>
+          )}
+          {renderGroup(WORKSPACE_NAV)}
+        </div>
+
+        <div className="flex lg:flex-col gap-1">
+          {!collapsed && (
+            <div className="px-2.5 pb-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider opacity-50 hidden lg:block">
+              Intelligence
+            </div>
+          )}
+          {renderGroup(INTELLIGENCE_NAV)}
+        </div>
       </div>
 
-      {/* Bottom Secondary Links & Collapse Toggle */}
+      {/* Bottom Developer / Account Group & Collapse Toggle */}
       <div className="p-2 hidden lg:flex flex-col gap-1 t-border-t">
-        {SECONDARY_NAV.map((item) => {
-          const Icon = item.icon;
-          const active = activeView === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              title={item.tip}
-              className={`nav-item px-2.5 py-2 text-xs flex items-center gap-2.5 cursor-pointer ${
-                active ? 'active' : ''
-              } ${collapsed ? 'justify-center px-0' : ''}`}
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {!collapsed && <span className="truncate font-medium">{item.label}</span>}
-            </button>
-          );
-        })}
+        {!collapsed && (
+          <div className="px-2.5 pb-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider opacity-50">
+            Developer
+          </div>
+        )}
+        {renderGroup(DEVELOPER_NAV)}
 
         <button
           onClick={onToggleCollapse}
