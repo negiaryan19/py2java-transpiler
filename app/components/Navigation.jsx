@@ -4,8 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import {
   Code2,
-  Terminal,
-  Webhook,
   Sliders,
   Sun,
   Flame,
@@ -159,8 +157,6 @@ export default function Navigation({
 export function SidebarRail({
   activeView,
   setActiveView,
-  latency,
-  webhookCount,
 }) {
   return (
     <aside
@@ -171,11 +167,11 @@ export function SidebarRail({
         {/* Section Label */}
         <div className="px-2 pt-1">
           <p className="text-[11px] font-mono uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
-            Workspace Views
+            Menu
           </p>
         </div>
 
-        {/* 4 Core Navigation Views */}
+        {/* Core Navigation Views */}
         <nav className="grid grid-cols-2 lg:grid-cols-1 gap-1.5">
           <button
             onClick={() => setActiveView('studio')}
@@ -185,38 +181,7 @@ export function SidebarRail({
           >
             <span className="flex items-center gap-2.5">
               <Code2 className="w-4 h-4 shrink-0" />
-              <span>Transpiler Studio</span>
-            </span>
-            <span className="text-[10px] font-mono opacity-60">01</span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('playground')}
-            className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
-              activeView === 'playground' ? 'active' : ''
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <Terminal className="w-4 h-4 shrink-0" />
-              <span>API Playground</span>
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 font-semibold">
-              POST
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveView('webhooks')}
-            className={`nav-item w-full px-3 py-2.5 text-xs flex items-center justify-between text-left cursor-pointer ${
-              activeView === 'webhooks' ? 'active' : ''
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <Webhook className="w-4 h-4 shrink-0" />
-              <span>Webhook Dispatcher</span>
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded t-subtle">
-              {webhookCount}
+              <span>Code Converter</span>
             </span>
           </button>
 

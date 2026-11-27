@@ -56,47 +56,6 @@ export default function TranspilerStudio({
   const javaTextareaRef = useRef(null);
   const javaGutterRef = useRef(null);
 
-  const handleDownloadPom = () => {
-    const v = javaTargetVersion.replace(/[^0-9]/g, '') || '17';
-    const pomContent = `<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <groupId>com.jforge.ciap</groupId>
-    <artifactId>transpiled-solution</artifactId>
-    <version>1.0.0</version>
-    <name>J-Forge Java Solution</name>
-
-    <properties>
-        <maven.compiler.source>${v}</maven.compiler.source>
-        <maven.compiler.target>${v}</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <release>${v}</release>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>`;
-    const blob = new Blob([pomContent], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'pom.xml';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   // Synchronized line gutter scroll handlers
   const handlePyScroll = (e) => {
     if (pyGutterRef.current) {
@@ -707,14 +666,6 @@ export default function TranspilerStudio({
                 <span>.java</span>
               </button>
               <button
-                onClick={handleDownloadPom}
-                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
-                title="Download Maven pom.xml project descriptor"
-              >
-                <Download className="w-3 h-3" />
-                <span>pom.xml</span>
-              </button>
-              <button
                 onClick={() => copyToClipboard(javaCode, 'java', 'Java code copied')}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
                 title="Copy Java"
@@ -797,13 +748,13 @@ export default function TranspilerStudio({
               }`}
             >
               <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Program Stdout</span>
+              <span>Output</span>
               <span className="text-[10px] px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
                 Exit 0
               </span>
             </button>
 
-            {/* Tab 2: Compiler Diagnostics & Big-O */}
+            {/* Tab 2: Code Analysis */}
             <button
               onClick={() => {
                 setConsoleTab('diagnostics');
@@ -816,10 +767,7 @@ export default function TranspilerStudio({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Compiler Diagnostics & Big-O</span>
-              <span className="text-[10px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-600 font-semibold">
-                AST
-              </span>
+              <span>Code Analysis</span>
             </button>
           </div>
 
@@ -959,26 +907,6 @@ export default function TranspilerStudio({
             )}
           </div>
         )}
-      </div>
-
-      {/* Compiler Notes & Webhook Summary Bar */}
-      <div className="t-surface p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-3">
-          <span className="px-2 py-1 font-mono font-semibold t-subtle flex items-center gap-1">
-            <CheckCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Static Type Safety Verified</span>
-          </span>
-          <span style={{ color: 'var(--text-secondary)' }}>{compilerSummary}</span>
-        </div>
-        <div className="flex items-center gap-3 font-mono text-[11px]">
-          <span style={{ color: 'var(--text-secondary)' }}>Webhook Event:</span>
-          <button
-            onClick={onNavigateToWebhooks}
-            className="underline font-semibold hover:opacity-80 cursor-pointer"
-          >
-            code.conversion.completed (HTTP 200) →
-          </button>
-        </div>
       </div>
 
       {/* Keyboard Shortcuts Modal */}
