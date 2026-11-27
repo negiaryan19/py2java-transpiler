@@ -2,6 +2,8 @@ import { checkRateLimit } from '../../../../lib/rate-limit.js';
 import { validateCodePayload, MAX_CODE_CHARS } from '../../../../lib/security.js';
 import { runJavaInSandbox } from '../../../../lib/java-sandbox.js';
 
+export const maxDuration = 30;
+
 export async function POST(request) {
   const rl = checkRateLimit(request, {
     keyPrefix: 'run_java:',
