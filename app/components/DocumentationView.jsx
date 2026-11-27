@@ -258,9 +258,9 @@ DEFAULT_WEBHOOK_URL="https://webhook.site/your-uuid"`;
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
           <div className="p-3 t-subtle space-y-1">
-            <span className="font-bold text-emerald-600">✓ 1. Live Vercel Deployment</span>
+            <span className="font-bold text-emerald-600">1. Vercel Serverless Deployment</span>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Public URL serving Next.js App Router frontend and serverless <code className="font-mono">/api/v1/convert</code>.
+              Next.js App Router frontend & serverless <code className="font-mono">/api/v1/convert</code> ready for live deployment.
             </p>
           </div>
           <div className="p-3 t-subtle space-y-1">

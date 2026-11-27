@@ -15,6 +15,7 @@ export default function ApiPlayground({
   setPgRequestBody,
   pgStatusBadge,
   pgResponseLatency,
+  pgResponseHeaders = {},
   pgResponseBody,
   isPgLoading,
   onExecuteRequest,
@@ -227,15 +228,15 @@ export default function ApiPlayground({
               Response Headers
             </label>
             <div className="p-2.5 t-subtle text-[11px] space-y-1">
-              <div>
-                <span className="opacity-60">content-type:</span> application/json; charset=utf-8
-              </div>
-              <div>
-                <span className="opacity-60">x-ratelimit-remaining:</span> 59
-              </div>
-              <div>
-                <span className="opacity-60">x-webhook-dispatched:</span> true
-              </div>
+              {Object.entries(pgResponseHeaders).length > 0 ? (
+                Object.entries(pgResponseHeaders).map(([key, value]) => (
+                  <div key={key}>
+                    <span className="opacity-60">{key}:</span> {value}
+                  </div>
+                ))
+              ) : (
+                <div className="opacity-60">Send a request to inspect live HTTP response headers</div>
+              )}
             </div>
           </div>
 
