@@ -26,6 +26,7 @@ import {
   Minimize2,
   History,
   MessageSquarePlus,
+  Play,
 } from 'lucide-react';
 import AstTypeBar from './AstTypeBar';
 import { studioExplainAction } from '../actions.js';
@@ -69,6 +70,36 @@ export default function TranspilerStudio({
   const fileInputRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [consoleTab, setConsoleTab] = useState('stdout'); // 'stdout' | 'javaRun' | 'diagnostics'
+  const [javaRunResult, setJavaRunResult] = useState(null);
+  const [isRunningJava, setIsRunningJava] = useState(false);
+
+  const handleRunJava = async () => {
+    if (!javaCode?.trim() || isRunningJava) return;
+    setIsRunningJava(true);
+    setConsoleTab('javaRun');
+    try {
+      const res = await fetch('/api/v1/run-java', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ java_code: javaCode }),
+      });
+      const data = await res.json();
+      setJavaRunResult(data);
+    } catch (err) {
+      setJavaRunResult({
+        ok: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: '',
+        compilerError: err?.message || 'Failed to reach Java sandbox.',
+        compiler: 'OpenJDK 21',
+        executionTimeMs: 0,
+      });
+    } finally {
+      setIsRunningJava(false);
+    }
+  };
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -113,7 +144,6 @@ export default function TranspilerStudio({
 
   // Keyboard Shortcuts & Compiler Diagnostics state
   const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
-  const [consoleTab, setConsoleTab] = useState('stdout'); // 'stdout' | 'diagnostics'
   const [diagnostics, setDiagnostics] = useState(null);
   const [isAnalyzingDiagnostics, setIsAnalyzingDiagnostics] = useState(false);
 
@@ -757,6 +787,19 @@ export default function TranspilerStudio({
               ) : null}
 
               <button
+                onClick={handleRunJava}
+                disabled={isRunningJava || !javaCode?.trim()}
+                className="t-btn-primary px-2.5 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                title="Compile & Run Java in real OpenJDK 21 Sandbox"
+              >
+                {isRunningJava ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Play className="w-3 h-3" />
+                )}
+                <span>{isRunningJava ? 'Running...' : 'Run Java'}</span>
+              </button>
+              <button
                 onClick={onDownloadJava}
                 className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer"
                 title="Download Solution.java"
@@ -867,7 +910,31 @@ export default function TranspilerStudio({
               </span>
             </button>
 
-            {/* Tab 2: Code Analysis */}
+            {/* Tab 2: Real Java Sandbox */}
+            <button
+              onClick={() => setConsoleTab('javaRun')}
+              className={`px-2.5 py-1 text-xs font-mono rounded flex items-center gap-1.5 cursor-pointer transition ${
+                consoleTab === 'javaRun'
+                  ? 'bg-black/10 dark:bg-white/10 font-bold text-sky-600 dark:text-sky-400'
+                  : 'opacity-70 hover:opacity-100'
+              }`}
+            >
+              <Play className="w-3.5 h-3.5 text-sky-500" />
+              <span>Java Sandbox</span>
+              {javaRunResult && (
+                <span
+                  className={`text-[10px] px-1 py-0.2 rounded font-semibold ${
+                    javaRunResult.ok
+                      ? 'bg-emerald-500/15 text-emerald-600'
+                      : 'bg-red-500/15 text-red-500'
+                  }`}
+                >
+                  {javaRunResult.ok ? 'JDK 21' : 'Error'}
+                </span>
+              )}
+            </button>
+
+            {/* Tab 3: Code Analysis */}
             <button
               onClick={() => {
                 setConsoleTab('diagnostics');
@@ -892,6 +959,15 @@ export default function TranspilerStudio({
               >
                 {copiedId === 'term' ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedId === 'term' ? 'Copied' : 'Copy'}</span>
+              </button>
+            ) : consoleTab === 'javaRun' ? (
+              <button
+                onClick={handleRunJava}
+                disabled={isRunningJava}
+                className="t-btn-secondary px-2 py-0.5 text-[11px] flex items-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isRunningJava ? <Loader2 className="w-3 h-3 animate-spin text-sky-500" /> : <Play className="w-3 h-3 text-sky-500" />}
+                <span>Re-Run JDK 21</span>
               </button>
             ) : (
               <button
@@ -924,6 +1000,53 @@ export default function TranspilerStudio({
               <span className="opacity-40">•</span>
               <span className="opacity-75">All assertions verified</span>
             </div>
+          </div>
+        ) : consoleTab === 'javaRun' ? (
+          <div
+            className="p-3.5 font-mono text-xs overflow-x-auto leading-relaxed"
+            style={{ backgroundColor: 'var(--bg-editor)', minHeight: '90px', maxHeight: '200px' }}
+          >
+            {isRunningJava ? (
+              <div className="flex items-center gap-2 py-4 text-xs opacity-75">
+                <Loader2 className="w-4 h-4 animate-spin text-sky-500" />
+                <span>Compiling & executing Solution.java in OpenJDK 21 sandbox...</span>
+              </div>
+            ) : !javaRunResult ? (
+              <div className="py-2 text-xs opacity-75">
+                Click <strong>Run Java</strong> above to compile and execute the generated Java code in a real OpenJDK 21 sandbox.
+              </div>
+            ) : (
+              <>
+                {javaRunResult.compilerError && (
+                  <pre className="whitespace-pre-wrap text-red-500 mb-2">{javaRunResult.compilerError}</pre>
+                )}
+                {javaRunResult.stderr && (
+                  <pre className="whitespace-pre-wrap text-amber-500 mb-2">{javaRunResult.stderr}</pre>
+                )}
+                {(javaRunResult.stdout || (!javaRunResult.compilerError && !javaRunResult.stderr)) && (
+                  <pre className="whitespace-pre-wrap selection:bg-sky-500 selection:text-black">
+                    {javaRunResult.stdout || '(No output)'}
+                  </pre>
+                )}
+                <div className="mt-2 pt-2 border-t border-dashed border-black/10 dark:border-white/10 text-[11px] flex flex-wrap items-center gap-2">
+                  <span className={javaRunResult.ok ? 'text-emerald-600 font-medium' : 'text-red-500 font-medium'}>
+                    {javaRunResult.ok
+                      ? `✓ OpenJDK 21 exited with code ${javaRunResult.exitCode}`
+                      : `✗ Exited with code ${javaRunResult.exitCode}`}
+                  </span>
+                  {javaRunResult.executionTimeMs > 0 && (
+                    <span className="opacity-60">• {javaRunResult.executionTimeMs} ms</span>
+                  )}
+                  {javaRunResult.ok &&
+                    executionStdout &&
+                    javaRunResult.stdout.trim() === executionStdout.trim() && (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 font-semibold">
+                        ✓ Matches Python Output
+                      </span>
+                    )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div
